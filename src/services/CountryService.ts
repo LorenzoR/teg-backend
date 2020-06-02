@@ -1,0 +1,66 @@
+const CountryType = {
+  // North America
+  CANADA: 'CANADA',
+  YUKON: 'YUKON',
+  OREGON: 'OREGON',
+  NEW_YORK: 'NEW_YORK',
+  ALASKA: 'ALASKA',
+  MEXICO: 'MEXICO',
+  CALIFORNIA: 'CALIFORNIA',
+  GREENLAND: 'GREENLAND',
+  TERRANOVA: 'TERRANOVA',
+  LABRADOR: 'LABRADOR',
+  // South America
+  COLOMBIA: 'COLOMBIA',
+  PERU: 'PERU',
+  BRASIL: 'BRASIL',
+  ARGENTINA: 'ARGENTINA',
+  CHILE: 'CHILE',
+  URUGUAY: 'URUGUAY',
+  // Oceania
+  AUSTRALIA: 'AUSTRALIA',
+  JAVA: 'JAVA',
+  SUMATRA: 'SUMATRA',
+  BORNEO: 'BORNEO',
+  // Africa
+  SAHARA: 'SAHARA',
+  SOUTH_AFRICA: 'SOUTH_AFRICA',
+  MADAGASCAR: 'MADAGASCAR',
+  ZAIRE: 'ZAIRE',
+  ETHIOPIA: 'ETHIOPIA',
+  EGYPT: 'EGYPT',
+  // Europe
+  ICELAND: 'ICELAND',
+  UK: 'UK',
+  SPAIN: 'SPAIN',
+  ITALY: 'ITALY',
+  FRANCE: 'FRANCE',
+  GERMANY: 'GERMANY',
+  POLAND: 'POLAND',
+  RUSIA: 'RUSIA',
+  SWEDEN: 'SWEDEN',
+  // Asia
+  ARAL: 'ARAL',
+  TARTARIA: 'TARTARIA',
+  TAIMIR: 'TAIMIR',
+  SIBERIA: 'SIBERIA',
+  KAMCHATKA: 'KAMCHATKA',
+  JAPAN: 'JAPAN',
+  MONGOLIA: 'MONGOLIA',
+  IRAN: 'IRAN',
+  GOBI: 'GOBI',
+  CHINA: 'CHINA',
+  MALASIA: 'MALASIA',
+  INDIA: 'INDIA',
+  TURKEY: 'TURKEY',
+  ISRAEL: 'ISRAEL',
+  ARABIA: 'ARABIA',
+};
+
+class CountryService {
+  public static getAllCountries(): {} {
+    return CountryType;
+  }
+}
+
+export default CountryService;

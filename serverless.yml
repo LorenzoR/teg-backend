@@ -1,0 +1,127 @@
+service:
+  name: nodejs
+# app and org for use with dashboard.serverless.com
+#app: your-app-name
+#org: your-org-name
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+  dynamodb:
+    # If you only want to use DynamoDB Local in some stages, declare them here
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: true
+      heapInitial: 200m
+      heapMax: 1g
+      migrate: true
+      seed: true
+      convertEmptyValues: true
+    # Uncomment only if you already have a DynamoDB running locally
+    # noStart: true
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  apiGateway:
+    minimumCompressionSize: 1024 # Enable gzip compression for responses > 1 KB
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+
+functions:
+  connectHandler:
+    handler: src/handler.connectHandler
+    events:
+      - websocket: $connect
+  disconnectHandler:
+    handler: src/handler.disconnectHandler
+    events:
+      - websocket:
+          route: $disconnect
+  joinGame:
+    handler: src/handler.joinGameHandler
+    events:
+      - websocket:
+          route: joinGame
+          routeResponseSelectionExpression: $default
+  reConnect:
+    handler: src/handler.reConnectHandler
+    events:
+      - websocket:
+          route: reConnect
+          routeResponseSelectionExpression: $default
+  startGame:
+    handler: src/handler.startGameHandler
+    events:
+      - websocket:
+          route: startGame
+          routeResponseSelectionExpression: $default
+  finishRound:
+    handler: src/handler.finishRoundHandler
+    events:
+      - websocket:
+          route: finishRound
+          routeResponseSelectionExpression: $default
+  addTroops:
+    handler: src/handler.addTroopsHandler
+    events:
+      - websocket:
+          route: addTroops
+          routeResponseSelectionExpression: $default
+  attack:
+    handler: src/handler.attackHandler
+    events:
+      - websocket:
+          route: attack
+          routeResponseSelectionExpression: $default
+  moveTroops:
+    handler: src/handler.moveTroopsHandler
+    events:
+      - websocket:
+          route: moveTroops
+          routeResponseSelectionExpression: $default
+  getCard:
+    handler: src/handler.getCardHandler
+    events:
+      - websocket:
+          route: getCard
+          routeResponseSelectionExpression: $default
+  exchangeCard:
+    handler: src/handler.exchangeCard
+    events:
+      - websocket:
+          route: exchangeCard
+          routeResponseSelectionExpression: $default
+  exchangeCards:
+    handler: src/handler.exchangeCards
+    events:
+      - websocket:
+          route: exchangeCards
+          routeResponseSelectionExpression: $default
+
+resources: # CloudFormation template syntax
+  Resources:
+    usersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: games
+        AttributeDefinitions:
+          - AttributeName: UUID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: UUID
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+plugins:
+  - serverless-webpack
+  - serverless-dynamodb-local
+  - serverless-offline
+  - serverless-iam-roles-per-function
+  - serverless-create-global-dynamodb-table
+  - serverless-prune-plugin
