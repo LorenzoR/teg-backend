@@ -66,7 +66,7 @@ const CardType = {
 
 const COUNTRY_CARDS = [
   // Ships
-  { country: CountriesRaw.MADAGASCAR, type: CardType.SHIP },
+  { country: CountriesRaw.MADAGASCAR, type: CardType.SHIP }, // 0
   { country: CountriesRaw.BORNEO, type: CardType.SHIP },
   { country: CountriesRaw.ISRAEL, type: CardType.SHIP },
   { country: CountriesRaw.PERU, type: CardType.SHIP },
@@ -83,7 +83,7 @@ const COUNTRY_CARDS = [
   { country: CountriesRaw.SWEDEN, type: CardType.SHIP },
   { country: CountriesRaw.NEW_YORK, type: CardType.SHIP },
   // Cannons
-  { country: CountriesRaw.ARABIA, type: CardType.CANNON },
+  { country: CountriesRaw.ARABIA, type: CardType.CANNON }, // 16
   { country: CountriesRaw.MEXICO, type: CardType.CANNON },
   { country: CountriesRaw.CALIFORNIA, type: CardType.CANNON },
   { country: CountriesRaw.CANADA, type: CardType.CANNON },
@@ -100,7 +100,7 @@ const COUNTRY_CARDS = [
   { country: CountriesRaw.TARTARIA, type: CardType.CANNON },
   { country: CountriesRaw.JAVA, type: CardType.CANNON },
   // Balloons
-  { country: CountriesRaw.SPAIN, type: CardType.BALLOON },
+  { country: CountriesRaw.SPAIN, type: CardType.BALLOON }, // 32
   { country: CountriesRaw.GREENLAND, type: CardType.BALLOON },
   { country: CountriesRaw.INDIA, type: CardType.BALLOON },
   { country: CountriesRaw.RUSIA, type: CardType.BALLOON },
@@ -117,7 +117,7 @@ const COUNTRY_CARDS = [
   { country: CountriesRaw.SUMATRA, type: CardType.BALLOON },
   { country: CountriesRaw.COLOMBIA, type: CardType.BALLOON },
   // Wildcards
-  { country: CountriesRaw.ARGENTINA, type: CardType.WILDCARD },
+  { country: CountriesRaw.ARGENTINA, type: CardType.WILDCARD }, // 48
   { country: CountriesRaw.TAIMIR, type: CardType.WILDCARD },
 ];
 
@@ -126,9 +126,57 @@ export interface CountryCardType {
   type: string;
 }
 
+const CardsForExchange = {
+  MIN: 3,
+  MAX: 5,
+};
+
 class CountryCard {
   public static getAllCards(): CountryCardType [] {
     return COUNTRY_CARDS;
+  }
+
+  public static playerCanExchangeCards(cards: CountryCardType[]): boolean {
+    if (!cards || cards.length < CardsForExchange.MIN) {
+      return false;
+    }
+
+    /*
+    if (cards.length === CardsForExchange.MAX) {
+      return true;
+    }
+    */
+
+    const qtyPerType = [0, 0, 0, 0];
+
+    cards.forEach((card) => {
+      if (card.type === CardType.BALLOON) {
+        qtyPerType[0] += 1;
+      } else if (card.type === CardType.CANNON) {
+        qtyPerType[1] += 1;
+      } else if (card.type === CardType.SHIP) {
+        qtyPerType[2] += 1;
+      } else {
+        // Wildcard
+        qtyPerType[3] += 1;
+      }
+    });
+
+    let sum = 0;
+
+    qtyPerType.forEach((elem, index) => {
+      if (elem >= 3) {
+        sum = elem;
+      } else if (elem > 0 && index < 3) {
+        sum += 1;
+      } else if (index === 3 && elem) {
+        // Wildcards
+        sum += 3;
+      }
+    });
+
+    // Count if there are 3 with same type or 3 with one type each
+    return sum >= 3;
   }
 }
 

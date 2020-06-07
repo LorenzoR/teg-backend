@@ -8,10 +8,8 @@ import CountryCard from '../models/CountryCard';
 
 class DealService {
   public static dealCountriesAndMissions(playersParam: Player[]): { countries: any; players: any} {
-    // const numberOfPlayers = this.state.players.length;
-    const players = [...playersParam];
+    const players = _.shuffle([...playersParam]); // Shuffle players order
     const numberOfPlayers = players.length;
-    // const countryKeys = _.shuffle(Object.keys(countriesParam));
     const countryKeys = CountryService.getAllCountries();
     const randomCountryKeys = _.shuffle(Object.keys(countryKeys));
     const countries = { };

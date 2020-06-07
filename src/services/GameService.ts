@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 // import { DynamoDB } from 'aws-sdk';
 import _ from 'lodash';
 
@@ -7,7 +8,11 @@ import { RoundType } from '../models/Round';
 
 import DealService from './DealService';
 import DiceService from './DiceService';
+import CountryService from './CountryService';
+import MissionService from './MissionService';
 
+import { ContinentTypes } from '../models/Continent';
+import CountryCard from '../models/CountryCard';
 
 interface Repository {
   put: any;
@@ -22,6 +27,21 @@ const GameStatusType = {
   STARTED: 'started',
   FINISHED: 'finished',
 };
+
+const ContinentBonus = {
+  AFRICA: 3,
+  EUROPE: 5,
+  SOUTH_AMERICA: 3,
+  NORTH_AMERICA: 5,
+  OCEANIA: 2,
+  ASIA: 7,
+};
+
+const FIRST_ROUND_TROOPS = 5;
+const SECOND_ROUND_TROOPS = 3;
+
+// TODO. Don't hard-code values
+const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
 
 class GameService {
   private repository!: Repository;
@@ -59,6 +79,7 @@ class GameService {
           type: RoundType.ADD_TROOPS,
           playerIndex: 0,
         },
+        eventsLog: [],
       },
     };
 
@@ -77,9 +98,28 @@ class GameService {
     }
   }
 
-  public async addPlayer(UUID: string, player: Player): Promise<any> {
+  public async addPlayer(UUID: string, player: { id: string; name: string; color: string}): Promise<any> {
     // Get players so we can update
     const game = await this.getGame(UUID);
+
+    // Check if there is a guest with that ID and if it was admin
+    let isAdmin = false;
+    if (game && game.guests) {
+      const guest = _.find(game.guests, (obj) => obj.id === player.id);
+      isAdmin = guest && guest.isAdmin ? guest.isAdmin : false;
+    }
+
+    const newPlayer = {
+      ...player,
+      cards: [],
+      playerStatus: 'online',
+      troopsToAdd: {
+        free: FIRST_ROUND_TROOPS,
+      },
+      canGetCard: false,
+      cardExchangesCount: 0,
+      isAdmin,
+    };
 
     let players;
 
@@ -89,11 +129,19 @@ class GameService {
       players = [];
     }
 
-    players.push(player);
+    players.push(newPlayer);
 
-    const updateExpression = 'set players = :p';
+    // Add event
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: `Player ${player.name} (${player.color}) joined game`,
+      type: 'playerAdded',
+    });
+
+    const updateExpression = 'set players = :p, eventsLog = :e';
     const expressionAttributeValues = {
       ':p': players,
+      ':e': game.eventsLog,
     };
 
     try {
@@ -126,8 +174,10 @@ class GameService {
       if (game.gameStatus === GameStatusType.STARTED) {
         // If game has started set status to offline so player can re-connect
         removedPlayer = _.find(game.players, (obj) => obj.id === playerId);
-        // removedPlayer.id = null;
-        removedPlayer.playerStatus = 'offline';
+        if (removedPlayer) {
+          // removedPlayer.id = null;
+          removedPlayer.playerStatus = 'offline';
+        }
       } else {
         // If game hasn't started just remove player
         removedPlayer = _.remove(game.players, (obj) => obj.id === playerId);
@@ -149,8 +199,8 @@ class GameService {
         );
 
         if (response) {
-          // ID is unique to array should have one element only
-          return removedPlayer.length ? removedPlayer[0] : removedPlayer;
+          // ID is unique so array should have one element only
+          return removedPlayer && removedPlayer.length ? removedPlayer[0] : removedPlayer;
         }
 
         // TODO. Handle error
@@ -198,7 +248,8 @@ class GameService {
     }
 
     // Find player by color
-    const player = _.find(game.players, (obj) => obj.color === color);
+    const { players } = game;
+    const player = _.find(players, (obj) => obj.color === color);
 
     if (!player) {
       return false;
@@ -212,7 +263,7 @@ class GameService {
     try {
       const updateExpression = 'set players = :p';
       const expressionAttributeValues = {
-        ':p': game.players,
+        ':p': players,
       };
       const response = await this.repository.update(
         'games',
@@ -222,7 +273,7 @@ class GameService {
       );
 
       if (response) {
-        return player;
+        return { player, players };
         // ID is unique to array should have one element only
         // return game;
       }
@@ -235,16 +286,24 @@ class GameService {
     }
   }
 
-  public async addGuest(UUID: string, guest: { id: string }): Promise<any> {
+  public async addGuest(UUID: string, guestId: string): Promise<any> {
     // Get players so we can update
     const game = await this.getGame(UUID);
 
+    // Check if there is already a player with that ID
+    if (game && game.players && _.find(game.players, (obj) => obj.id === guestId)) {
+      return null;
+    }
+
     let guests;
+
+    const guest = { id: guestId, isAdmin: false };
 
     if (game && game.guests) {
       guests = game.guests;
     } else {
       guests = [];
+      guest.isAdmin = true;
     }
 
     guests.push(guest);
@@ -275,11 +334,21 @@ class GameService {
   }
 
   public async removeGuest(UUID: string, guestId: string): Promise<any> {
+    if (!UUID || !guestId) {
+      return null;
+    }
+
     // Get players so we can update
     const game = await this.getGame(UUID);
 
     if (game && game.guests) {
       _.remove(game.guests, (obj) => obj.id === guestId);
+
+      // If waiting for players and there is only one guest, make it admin
+      if (game.guests && game.guests.length === 1 && game.gameStatus === GameStatusType.WAITING_PLAYERS) {
+        const guest = game.guests[0];
+        guest.isAdmin = true;
+      }
 
       const updateExpression = 'set guests = :g';
       const expressionAttributeValues = {
@@ -320,11 +389,15 @@ class GameService {
     // Set first round
     const round = {
       count: 1,
-      type: RoundType.ADD_TROOPS,
+      type: RoundType.FIRST_ADD_TROOPS,
       playerIndex: 0,
     };
 
-    // const currentPlayerIndex = 0;
+    // Troops to add
+    game.players.forEach((player) => {
+      // eslint-disable-next-line no-param-reassign
+      player.troopsToAdd = { free: FIRST_ROUND_TROOPS };
+    });
 
     // Add countries and missions
     const countriesAndMissions = DealService.dealCountriesAndMissions(
@@ -337,9 +410,18 @@ class GameService {
     // Set status to STARTED
     const gameStatus = GameStatusType.STARTED;
 
+    // Remove guests
+    game.guests = [];
+
+    // Add event
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: 'Game started',
+      type: 'gameStarted',
+    });
+
     // Update game
-    const updateExpression =
-      'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc';
+    const updateExpression = 'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc, guests = :g, eventsLog = :e';
     const expressionAttributeValues = {
       ':p': countriesAndMissions.players,
       ':c': countriesAndMissions.countries,
@@ -347,6 +429,8 @@ class GameService {
       ':r': round,
       ':s': gameStatus,
       ':cc': countryCards,
+      ':g': game.guests,
+      ':e': game.eventsLog,
     };
 
     try {
@@ -364,7 +448,6 @@ class GameService {
         game.round = round;
         game.gameStatus = gameStatus;
         game.countryCards = countryCards;
-        // game.currentPlayerIndex = currentPlayerIndex;
         return game;
       }
 
@@ -374,6 +457,10 @@ class GameService {
       console.error('ERROR: ', error);
       return false;
     }
+  }
+
+  private static getCurrentTimestamp() {
+    return new Date().getTime();
   }
 
   public async getGame(UUID: string): Promise<any> {
@@ -394,23 +481,59 @@ class GameService {
     }
   }
 
-  public async finishRound(UUID: string): Promise<any> {
+  public async finishRound(UUID: string, playerColor: string): Promise<any> {
     // Get game
     const game = await this.getGame(UUID);
 
-    /*
-    // Check if mission completed
-    const mission = this.state.players[this.state.currentPlayerIndex].mission;
+    // Get player
+    const currentPlayer = _.find(game.players, { color: playerColor });
 
-    const currentPlayerCountries = this.getCountriesByPlayer(
-      this.state.currentPlayerIndex,
-    );
-
-    if (Mission.missionCompleted(mission, currentPlayerCountries)) {
-      console.log('Mission completed!');
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerColor} not found`);
     }
-    */
+
+    // Check if mission completed
+    const { mission } = currentPlayer;
+
+    const currentPlayerCountries = GameService.getCountriesByPlayer(game.countries, playerColor);
+
+    // Game finished!
+    if (MissionService.missionCompleted(mission, currentPlayerCountries)) {
+      console.log('Mission completed!');
+      game.winner = 1;
+      game.gameStatus = GameStatusType.FINISHED;
+
+      // Save game
+      try {
+        const updateExpression = 'set gameStatus = :g';
+        const expressionAttributeValues = {
+          ':g': game.gameStatus,
+        };
+
+        const response = await this.repository.update(
+          'games',
+          { UUID },
+          updateExpression,
+          expressionAttributeValues,
+        );
+
+        if (response) {
+          return game;
+        }
+
+        // TODO. Handle error
+        return false;
+      } catch (error) {
+        console.log(error);
+        return false;
+      }
+    }
+
     const { players, round, countries } = game;
+
+    // Order is
+    // FIRST_ADD_TROOPS --> SECOND_ADD_TROOPS --> ATTACK --> ADD_TROOPS --> ATTACK --> ADD_TROOPS --> ...
+    // After ATTACK round we change the playing order of players
 
     // Check if it's last player and we have to change round type
     if (round.playerIndex === game.players.length - 1) {
@@ -418,19 +541,51 @@ class GameService {
       round.playerIndex = 0;
       // let currentRound = '';
 
-      if (round.type === RoundType.ADD_TROOPS) {
+      if (round.type === RoundType.FIRST_ADD_TROOPS) {
+        // First round to add troops, change to second
+        round.type = RoundType.SECOND_ADD_TROOPS;
+
+        players.forEach((player) => {
+          player.troopsToAdd.free = SECOND_ROUND_TROOPS;
+          player.canGetCard = false;
+        });
+      } else if (round.type === RoundType.SECOND_ADD_TROOPS || round.type === RoundType.ADD_TROOPS) {
+        // Second round to add troops, change to attack
         round.type = RoundType.ATTACK;
-      } else if (
-        round.type === RoundType.ATTACK || round.type === RoundType.MOVE_TROOPS
-      ) {
+
+        // No troops to add
+        players.forEach((player) => {
+          player.troopsToAdd.free = 0;
+          player.canGetCard = false;
+        });
+        /*
+      } else if (round.type === RoundType.ADD_TROOPS) {
+        round.type = RoundType.ATTACK;
+
+        // Set troops to add
+        players.forEach((player) => {
+          // eslint-disable-next-line no-param-reassign
+          player.troopsToAdd.free = 0;
+        });
+        */
+      } else if ([RoundType.ATTACK, RoundType.MOVE_TROOPS, RoundType.GET_CARD].includes(round.type)) {
         // Change order of players
         round.type = RoundType.ADD_TROOPS;
         round.count += 1;
         const lastPlayer = players.shift();
         players.push(lastPlayer);
+
+        // Set troops to add
+        const troopsToAdd = GameService.calculateTroopsToAdd(game.players, game.countries);
+
+        players.forEach((player) => {
+          player.troopsToAdd = troopsToAdd[player.color];
+          player.canGetCard = false;
+        });
       }
 
       // Reset troops to add
+      /*
       const troopsPerPlayer = 3; // this.calculateTroopsToAddPerPlayer();
 
       players.forEach((player) => {
@@ -439,7 +594,9 @@ class GameService {
         // eslint-disable-next-line no-param-reassign
         player.canGetCard = false;
       });
+      */
 
+      /*
       // Add recently added troops to troops
       // TODO. Remove duplicate
       if (round.type === RoundType.ADD_TROOPS) {
@@ -449,6 +606,7 @@ class GameService {
           country.state.newTroops = 0;
         });
       }
+      */
 
       /*
       this.setState({
@@ -463,13 +621,19 @@ class GameService {
       // Add recently added troops to troops
       // TODO. Remove duplicate
       // const { countries, round } = game;
-
+      /*
       if (round.type === RoundType.ADD_TROOPS) {
         Object.keys(countries).forEach((countryKey) => {
           const country = countries[countryKey];
           country.state.troops += country.state.newTroops;
           country.state.newTroops = 0;
         });
+      }
+      */
+
+      // If player was moving troops or got a card, change to attack
+      if ([RoundType.MOVE_TROOPS, RoundType.GET_CARD].includes(round.type)) {
+        round.type = RoundType.ATTACK;
       }
 
       round.playerIndex += 1;
@@ -481,6 +645,16 @@ class GameService {
         countrySelection: {}, // Clear selection
       });
       */
+    }
+
+    // Add recently added troops to troops
+    // TODO. Remove duplicate
+    if (round.type === RoundType.ADD_TROOPS) {
+      Object.keys(countries).forEach((countryKey) => {
+        const country = countries[countryKey];
+        country.state.troops += country.state.newTroops;
+        country.state.newTroops = 0;
+      });
     }
 
     // Update game
@@ -512,15 +686,224 @@ class GameService {
     }
   }
 
+  public static getCountriesByPlayer(countries: {}, playerColor: string): any[] {
+    const response = [];
+
+    Object.keys(countries).forEach((countryKey) => {
+      const country = countries[countryKey];
+      if (country.state.player.color === playerColor) {
+        response.push(country);
+      }
+    });
+
+    return response;
+  }
+
+  public static calculateTroopsToAdd(players: Player[], countries: {}): { } {
+    const troopsPerPlayer = { };
+    const countriesPerPlayer = { };
+    const initialCount = { total: 0 };
+
+    initialCount[ContinentTypes.AFRICA] = 0;
+    initialCount[ContinentTypes.ASIA] = 0;
+    initialCount[ContinentTypes.EUROPE] = 0;
+    initialCount[ContinentTypes.NORTH_AMERICA] = 0;
+    initialCount[ContinentTypes.OCEANIA] = 0;
+    initialCount[ContinentTypes.SOUTH_AMERICA] = 0;
+
+    // Init count
+    players.forEach((player) => {
+      countriesPerPlayer[player.color] = { ...initialCount };
+      troopsPerPlayer[player.color] = { ...initialCount };
+    });
+
+    // Count countries per continent for each player
+    _.forIn(countries, (value, key) => {
+      const continent = CountryService.getContinent(key);
+      countriesPerPlayer[value.state.player.color].total += 1;
+      countriesPerPlayer[value.state.player.color][continent] += 1;
+    });
+
+    console.log('countriesPerPlayer', countriesPerPlayer);
+
+    _.forIn(countriesPerPlayer, (value, key) => {
+      troopsPerPlayer[key].free = Math.floor(value.total / 2);
+
+      // Check continents
+      if (countriesPerPlayer[key][ContinentTypes.AFRICA] && countriesPerPlayer[key][ContinentTypes.AFRICA] === 6) {
+        troopsPerPlayer[key][ContinentTypes.AFRICA] = ContinentBonus.AFRICA;
+      }
+
+      if (countriesPerPlayer[key][ContinentTypes.ASIA] && countriesPerPlayer[key][ContinentTypes.ASIA] === 15) {
+        troopsPerPlayer[key][ContinentTypes.ASIA] = ContinentBonus.ASIA;
+      }
+
+      if (countriesPerPlayer[key][ContinentTypes.EUROPE] && countriesPerPlayer[key][ContinentTypes.EUROPE] === 9) {
+        troopsPerPlayer[key][ContinentTypes.EUROPE] = ContinentBonus.EUROPE;
+      }
+
+      if (countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] === 10) {
+        troopsPerPlayer[key][ContinentTypes.NORTH_AMERICA] = ContinentBonus.NORTH_AMERICA;
+      }
+
+      if (countriesPerPlayer[key][ContinentTypes.OCEANIA] && countriesPerPlayer[key][ContinentTypes.OCEANIA] === 4) {
+        troopsPerPlayer[key][ContinentTypes.OCEANIA] = ContinentBonus.OCEANIA;
+      }
+
+      if (countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] === 6) {
+        troopsPerPlayer[key][ContinentTypes.SOUTH_AMERICA] = ContinentBonus.SOUTH_AMERICA;
+      }
+    });
+
+    return troopsPerPlayer;
+  }
+
+  public async exchangeCard(UUID: string, playerColor: string, countryCard: string): Promise<any> {
+    // Get countries so we can update
+    const game = await this.getGame(UUID);
+
+    // Get player
+    const { players } = game;
+    const player = _.find(players, (obj) => obj.color === playerColor);
+
+    if (!player) {
+      throw new Error(`Player ${playerColor} not found.`);
+    }
+
+    // Find card
+    const card = _.find(player.cards, (obj) => obj.country === countryCard);
+
+    if (!card) {
+      throw new Error(`Card ${countryCard} not found in player ${playerColor}`);
+    }
+
+    if (card.exchanged) {
+      throw new Error(`Card ${countryCard} already exchanged`);
+    }
+
+    // Check if player has that country
+    const country = _.find(game.countries, (obj) => obj.countryKey === countryCard);
+
+    if (!country || country.state.player.color !== playerColor) {
+      throw new Error(`Country ${country} does not belong to ${playerColor}`);
+    }
+
+    // Mark as exchanged
+    card.exchanged = true;
+
+    // Add 2 new troops to country
+    country.state.newTroops += 2;
+
+    // Update game
+    try {
+      const updateExpression = 'set players = :p, countries = :c';
+      const expressionAttributeValues = {
+        ':p': players,
+        ':c': game.countries,
+      };
+
+      const response = await this.repository.update(
+        'games',
+        { UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return {
+          countries: game.countries,
+          players,
+        };
+      }
+
+      // TODO. Handle error
+      return false;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+
+  public async exchangeCards(UUID: string, playerColor: string, countryCards: string[]): Promise<any> {
+    // Get countries so we can update
+    const game = await this.getGame(UUID);
+
+    // Get player
+    const { players } = game;
+    const player = _.find(players, (obj) => obj.color === playerColor);
+
+    if (!player) {
+      throw new Error(`Player ${playerColor} not found.`);
+    }
+
+    // Find cards
+    const cards = [];
+    countryCards.forEach((countryCard) => {
+      const card = _.find(player.cards, (obj) => obj.country === countryCard);
+
+      if (!card) {
+        throw new Error(`Card ${countryCard} not found in player ${playerColor}`);
+      }
+
+      cards.push(card);
+
+      // Remove card from player
+      _.remove(player.cards, (obj) => obj.country === countryCard);
+    });
+
+    // Check the cards can be exchanged
+    if (!CountryCard.playerCanExchangeCards(cards)) {
+      throw new Error(`Can't change cards ${countryCards.join(', ')}`);
+    }
+
+    // Put cards back to deck and shuffle
+    const mergedCards = _.shuffle([...game.countryCards, ...cards]);
+
+    // Update player
+    player.troopsToAdd.free += CardExchangesCount[player.cardExchangesCount];
+    player.cardExchangesCount += 1;
+
+    // Update game
+    try {
+      const updateExpression = 'set players = :p, countryCards= :cc';
+      const expressionAttributeValues = {
+        ':p': players,
+        ':cc': mergedCards,
+      };
+
+      const response = await this.repository.update(
+        'games',
+        { UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return {
+          players,
+        };
+      }
+
+      // TODO. Handle error
+      return false;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+
   public async addTroops(
     UUID: string,
+    playerColor: string,
     country: string,
     amount: number,
   ): Promise<any> {
     // Get countries so we can update
     const game = await this.getGame(UUID);
 
-    let guests;
+    if (![RoundType.ADD_TROOPS, RoundType.FIRST_ADD_TROOPS, RoundType.SECOND_ADD_TROOPS].includes(game.round.type)) {
+      throw new Error(`Can not add troops in round ${game.round.type}.`);
+    }
 
     if (!game || !game.countries || !game.countries[country]) {
       // TODO. Handle error
@@ -528,12 +911,73 @@ class GameService {
       return null;
     }
 
-    game.countries[country].state.troops += amount;
+    console.log('COUNTRY', game.countries[country].state.player.color);
+    console.log('playerColor', playerColor);
+
+    if (game.countries[country].state.player.color !== playerColor) {
+      throw new Error(`Country ${country} does not belong to ${playerColor}`);
+    }
+
+    const player = _.find(game.players, (obj) => obj.color === playerColor);
+
+    if (!player) {
+      throw new Error(`Player ${playerColor} not found`);
+    }
+
+    // If player has continent bonus, try to use those troops first
+    const continent = CountryService.getContinent(country);
+
+    if (amount > 0) {
+      // Adding troops
+      if (player.troopsToAdd[continent] >= amount) {
+        // Continent bonus
+        player.troopsToAdd[continent] -= amount;
+        game.countries[country].state.troops += amount;
+      } else if (player.troopsToAdd.free >= amount) {
+        // Check if player has free troops
+        player.troopsToAdd.free -= amount;
+        game.countries[country].state.troops += amount;
+      } else {
+        throw new Error(`Can not add more than ${player.troopsToAdd.free} troops`);
+      }
+    } else if (amount < 0) {
+      // Removing troops
+      if (game.countries[country].state.troops <= 1) {
+        throw new Error(`Can not remove more than ${game.countries[country].state.troops} from ${country}`);
+      }
+
+      // If player had continent bonus, put troops back there
+      if ((player.troopsToAdd[continent] || player.troopsToAdd[continent] === 0)
+          && player.troopsToAdd[continent] < ContinentBonus[continent]) {
+        player.troopsToAdd[continent] -= amount;
+      } else {
+        player.troopsToAdd.free -= amount;
+      }
+
+      game.countries[country].state.troops += amount;
+    }
+
+    // Add event
+    let eventText = null;
+
+    if (amount > 0) {
+      eventText = `Player ${playerColor} added ${amount} troops to ${country}`;
+    } else {
+      eventText = `Player ${playerColor} removed ${amount} troops from ${country}`;
+    }
+
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: eventText,
+      type: 'troopsAdded',
+    });
 
     try {
-      const updateExpression = 'set countries = :c';
+      const updateExpression = 'set countries = :c, players = :p, eventsLog = :e';
       const expressionAttributeValues = {
         ':c': game.countries,
+        ':p': game.players,
+        ':e': game.eventsLog,
       };
 
       const response = await this.repository.update(
@@ -555,7 +999,7 @@ class GameService {
     }
   }
 
-  public async attack(UUID: string, attackerKey: string, defenderKey: string, playerId: string): Promise<any> {
+  public async attack(UUID: string, attackerKey: string, defenderKey: string, playerColor: string): Promise<any> {
     if (attackerKey === defenderKey) {
       throw new Error('Attacker and defender can not be the same');
     }
@@ -582,9 +1026,20 @@ class GameService {
       throw new Error('Attacker needs at least 2 troops to attack');
     }
 
-    if (attacker.state.player.id !== playerId) {
-      throw new Error(`Country ${attackerKey} does not belong to ${playerId}`);
+    if (attacker.state.player.color !== playerColor) {
+      throw new Error(`Country ${attackerKey} does not belong to ${playerColor}`);
     }
+
+    if (game.round.type !== RoundType.ATTACK) {
+      throw new Error(`Can not attack in round ${game.round.type}.`);
+    }
+
+    // Add event
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: `Player ${playerColor} attacks ${defenderKey} from ${attackerKey}`,
+      type: 'countryAttacked',
+    });
 
     // Max 3 dices per attack
     const numberOfAttackerDices = Math.min(
@@ -596,52 +1051,157 @@ class GameService {
       this.MAX_DICES_PER_THROW,
     );
 
-    // Roll dices
+    // Roll dices and sort descending
     const dices = { attacker: [], defender: [] };
-    dices.attacker = this.diceService.throwDices(numberOfAttackerDices);
-    dices.defender = this.diceService.throwDices(numberOfDefenderDices);
+    dices.attacker = this.diceService.throwDices(numberOfAttackerDices).sort((a, b) => b - a);
+    dices.defender = this.diceService.throwDices(numberOfDefenderDices).sort((a, b) => b - a);
 
-    // Sort descending
+    // Get copy with only the dices we need to compare attacker vs defender
     const dicesCopy = { attacker: [], defender: [] };
-    dicesCopy.attacker = [...dices.attacker]
-      .sort((a, b) => b - a)
-      .slice(0, numberOfDefenderDices);
-    dicesCopy.defender = [...dices.defender]
-      .sort((a, b) => b - a)
-      .slice(0, numberOfAttackerDices);
+    dicesCopy.attacker = [...dices.attacker].slice(0, numberOfDefenderDices);
+    dicesCopy.defender = [...dices.defender].slice(0, numberOfAttackerDices);
 
     // Update number of troops
+    let defenderTroopsLost = 0;
+    let attackerTroopsLost = 0;
     dicesCopy.attacker.forEach((dice, index) => {
       if (dice > dicesCopy.defender[index]) {
         // Defender lost
         defender.state.troops -= 1;
+        defenderTroopsLost += 1;
       } else {
         // Attacker lost
         attacker.state.troops -= 1;
+        attackerTroopsLost += 1;
       }
     });
 
+    // Add event
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: `${defenderKey} lost ${defenderTroopsLost} troops and ${attackerKey} lost ${attackerTroopsLost} troops`,
+      type: 'countryAttacked',
+    });
+
+    // Attacker conquered defender
     if (defender.state.troops === 0) {
       console.log('Conquered!');
+      const defenderColor = defender.state.player.color;
       defender.state.player = attacker.state.player;
+
+      // Get attacker player
+      const player = _.find(game.players, (obj) => obj.color === playerColor);
+
+      // Add event
+      game.eventsLog.unshift({
+        time: GameService.getCurrentTimestamp(),
+        text: `Player ${playerColor} conquered ${defenderKey}`,
+        type: 'troopsMoved',
+      });
+
+      // Check if defender was killed
+      const defenderCountries = GameService.getCountriesByPlayer(game.countries, defenderColor);
+
+      if (!defenderCountries || defenderCountries.length === 0) {
+        // Defender was killed
+        console.log(`${defenderColor} was killed by ${playerColor}`);
+
+        // Add event
+        game.eventsLog.unshift({
+          time: GameService.getCurrentTimestamp(),
+          text: `${defenderColor} was killed by ${playerColor}`,
+          type: 'countryAttacked',
+        });
+
+        // Check if attacker mission was to destroy defender
+        if (player.mission.destroy) {
+          if (player.mission.destroy === defenderColor) {
+            // Attacker won
+            game.gameStatus = 'finished';
+            game.winner = playerColor;
+
+            // Add event
+            game.eventsLog.unshift({
+              time: GameService.getCurrentTimestamp(),
+              text: `${playerColor} won`,
+              type: 'countryAttacked',
+            });
+
+            return game;
+          }
+
+          // If player's mission color is not playing, check next player in turn order
+          if (!_.find(game.players, (obj) => obj.color === player.mission.destroy)) {
+            const playerIndex = _.findIndex(game.players, (obj) => obj.color === playerColor);
+            const nextIndex = (playerIndex + 1) % game.players.length;
+
+            if (player.mission.destroy === game.players[nextIndex].color) {
+              // Attacker won
+              game.gameStatus = 'finished';
+              game.winner = playerColor;
+
+              // Add event
+              game.eventsLog.unshift({
+                time: GameService.getCurrentTimestamp(),
+                text: `${playerColor} won`,
+                type: 'countryAttacked',
+              });
+
+              return game;
+            }
+          }
+        }
+
+        // Attacker didn't win but he gets all defenders cards
+        const defenderPlayer = _.find(game.players, (obj) => obj.color === defenderColor);
+        let cardsFromDefenderCount = 0;
+
+        // Attacker can have 5 cards max, the rest goes to deck
+        while (defenderPlayer.cards.length > 0) {
+          if (player.cards.length <= 5) {
+            console.log('Give card to attacker');
+            cardsFromDefenderCount += 1;
+            player.cards.push(defenderPlayer.cards.pop());
+          } else {
+            console.log('Card back to deck');
+            game.countryCards.push(defenderPlayer.cards.pop());
+          }
+        }
+
+        if (cardsFromDefenderCount) {
+          // Add event
+          game.eventsLog.unshift({
+            time: GameService.getCurrentTimestamp(),
+            text: `${playerColor} got ${cardsFromDefenderCount} cards from ${defenderColor}`,
+            type: 'countryAttacked',
+          });
+        }
+      }
 
       // Move one by default, player might move more later
       const troopsToMove = 1;
       attacker.state.troops -= troopsToMove;
       defender.state.troops = troopsToMove;
 
-      // Get player
-      const player = _.find(game.players, (obj) => obj.color === attacker.state.player.color);
+      // Add event
+      game.eventsLog.unshift({
+        time: GameService.getCurrentTimestamp(),
+        text: `Player ${playerColor} moved ${troopsToMove} troops from ${attacker.name} to ${defender.name}`,
+        type: 'troopsMoved',
+      });
+
+      // Player can get a card
       player.canGetCard = true;
       countryConquered = true;
     }
 
-    // TODO. Update game
     try {
-      const updateExpression = 'set countries = :c, players = :p';
+      const updateExpression = 'set countries = :c, players = :p, eventsLog = :e, countryCards = :cc';
       const expressionAttributeValues = {
         ':c': game.countries,
         ':p': game.players,
+        ':e': game.eventsLog,
+        ':cc': game.countryCards,
       };
 
       const response = await this.repository.update(
@@ -658,6 +1218,7 @@ class GameService {
           dices,
           players: game.players,
           countryConquered,
+          eventsLog: game.eventsLog,
         };
       }
 
@@ -669,7 +1230,14 @@ class GameService {
     }
   }
 
-  public async moveTroops(UUID: string, sourceKey: string, targetKey: string, playerId: string, count: number): Promise<any> {
+  public async moveTroops(
+    UUID: string,
+    sourceKey: string,
+    targetKey: string,
+    playerColor: string,
+    count: number,
+    conquest = false,
+  ): Promise<any> {
     if (sourceKey === targetKey) {
       throw new Error('Source and target can not be the same');
     }
@@ -687,25 +1255,47 @@ class GameService {
     const target = game.countries[targetKey];
 
     // Validations
-    if (source.state.player.id !== playerId) {
-      throw new Error(`${sourceKey} does not belong to ${playerId}`);
+    if (source.state.player.color !== playerColor) {
+      throw new Error(`${sourceKey} does not belong to ${playerColor}`);
     }
 
-    if (target.state.player.id !== playerId) {
-      throw new Error(`${targetKey} does not belong to ${playerId}`);
+    if (target.state.player.color !== playerColor) {
+      throw new Error(`${targetKey} does not belong to ${playerColor}`);
     }
 
     if (source.state.troops < (count + 1)) {
       throw new Error(`Not enough troops in ${sourceKey}`);
     }
 
+    if (![RoundType.MOVE_TROOPS, RoundType.ATTACK].includes(game.round.type)) {
+      throw new Error(`Can not move troops in round ${game.round.type}.`);
+    }
+
     source.state.troops -= count;
-    target.state.newTroops += count;
+
+    if (conquest) {
+      // Moved troops can attack so add to normal troop count
+      target.state.troops += count;
+    } else {
+      target.state.newTroops += count;
+
+      // Change round type so player can't attack any more
+      game.round.type = RoundType.MOVE_TROOPS;
+    }
+
+    // Add event
+    game.eventsLog.unshift({
+      time: GameService.getCurrentTimestamp(),
+      text: `Player ${playerColor} moved ${count} troops from ${source.name} to ${target.name}`,
+      type: 'troopsMoved',
+    });
 
     try {
-      const updateExpression = 'set countries = :c';
+      const updateExpression = 'set countries = :c, round = :r, eventsLog = :e';
       const expressionAttributeValues = {
         ':c': game.countries,
+        ':r': game.round,
+        ':e': game.eventsLog,
       };
 
       const response = await this.repository.update(
@@ -720,6 +1310,8 @@ class GameService {
           source,
           target,
           count,
+          round: game.round,
+          eventsLog: game.eventsLog,
         };
       }
 
@@ -731,29 +1323,33 @@ class GameService {
     }
   }
 
-  public async getCard(UUID: string, playerId: string): Promise<any> {
+  public async getCard(UUID: string, playerColor: string): Promise<any> {
     const game = await this.getGame(UUID);
 
-    const { countryCards, players } = game;
+    const { countryCards, players, round } = game;
 
     const newCard = countryCards.shift();
     newCard.exchanged = false;
 
-    const player = _.find(players, (obj) => obj.id === playerId);
+    const player = _.find(players, (obj) => obj.color === playerColor);
 
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      throw new Error(`Player ${playerColor} not found`);
     }
 
     player.cards.push(newCard);
     player.canGetCard = false;
 
+    // Change round
+    round.type = RoundType.GET_CARD;
+
     // Update game
     try {
-      const updateExpression = 'set countryCards = :cc, players = :p';
+      const updateExpression = 'set countryCards = :cc, players = :p, round = :r';
       const expressionAttributeValues = {
         ':cc': countryCards,
         ':p': players,
+        ':r': round,
       };
 
       const response = await this.repository.update(
@@ -765,8 +1361,10 @@ class GameService {
 
       if (response) {
         return {
+          player,
           countryCards,
           players,
+          round,
         };
       }
 
@@ -810,7 +1408,9 @@ class GameService {
     }
   }
 
-  // For debugging purposes
+  /* ********************** */
+  /* For debugging purposes */
+  /* ********************** */
   public async assignCountryToPlayer(
     UUID: string,
     player: Player,
@@ -829,6 +1429,88 @@ class GameService {
       const updateExpression = 'set countries = :c';
       const expressionAttributeValues = {
         ':c': game.countries,
+      };
+
+      const response = await this.repository.update(
+        'games',
+        { UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return response;
+      }
+
+      // TODO. Handle error
+      return false;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+
+  public async addCountryCardToPlayer(
+    UUID: string,
+    playerColor: string,
+    countryCard: string,
+  ): Promise<any> {
+    const game = await this.getGame(UUID);
+
+    if (!game) {
+      throw new Error(`No game with UUID ${UUID}`);
+    }
+
+    // Get a card
+    const { countryCards } = game;
+    const card = _.find(countryCards, (obj) => obj.country === countryCard);
+    _.remove(countryCards, (obj) => obj.country === countryCard);
+
+    // Assign card to player
+    const player = _.find(game.players, (obj) => obj.color === playerColor);
+    player.cards.push(card);
+
+    try {
+      const updateExpression = 'set countries = :c, players = :p, countryCards = :cc';
+      const expressionAttributeValues = {
+        ':c': game.countries,
+        ':cc': countryCards,
+        ':p': game.players,
+      };
+
+      const response = await this.repository.update(
+        'games',
+        { UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return response;
+      }
+
+      // TODO. Handle error
+      return false;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+
+  public async setRoundType(UUID: string, roundType: string): Promise<any> {
+    const game = await this.getGame(UUID);
+
+    if (!game) {
+      throw new Error(`No game with UUID ${UUID}`);
+    }
+
+    // Set round type
+    game.round.type = roundType;
+
+    try {
+      const updateExpression = 'set round = :r';
+      const expressionAttributeValues = {
+        ':r': game.round,
       };
 
       const response = await this.repository.update(

@@ -26,6 +26,8 @@ custom:
 provider:
   name: aws
   runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'} # Set the default stage used. Default is dev
+  region: ${opt:region, 'ap-southeast-2'} # Overwrite the default region used. Default is ap-southeast-2
   apiGateway:
     minimumCompressionSize: 1024 # Enable gzip compression for responses > 1 KB
   environment:
@@ -90,16 +92,22 @@ functions:
           route: getCard
           routeResponseSelectionExpression: $default
   exchangeCard:
-    handler: src/handler.exchangeCard
+    handler: src/handler.exchangeCardHandler
     events:
       - websocket:
           route: exchangeCard
           routeResponseSelectionExpression: $default
   exchangeCards:
-    handler: src/handler.exchangeCards
+    handler: src/handler.exchangeCardsHandler
     events:
       - websocket:
           route: exchangeCards
+          routeResponseSelectionExpression: $default
+  chatMessage:
+    handler: src/handler.chatMessageHandler
+    events:
+      - websocket:
+          route: chatMessage
           routeResponseSelectionExpression: $default
 
 resources: # CloudFormation template syntax

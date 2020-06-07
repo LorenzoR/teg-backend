@@ -36,9 +36,11 @@ class APIGatewayWebsocketsService {
   }
 
   public async broadcast(data: {}, connectionIds: string[]): Promise<boolean> {
+    // Remove duplicates
+    const uniqueConnectionIds = [...new Set(connectionIds)];
     const promises = [];
 
-    connectionIds.forEach((connectionId) => {
+    uniqueConnectionIds.forEach((connectionId) => {
       promises.push(this.send(connectionId, data));
     });
 

@@ -6,6 +6,7 @@
   "scripts": {
     "offline": "nodemon -e js,ts,yml --ignore node_modules --exec serverless offline start",
     "test": "NODE_ENV=test ./node_modules/.bin/jest --ci --verbose",
+    "debug-test": "node --inspect-brk=9230 ./node_modules/.bin/jest -i",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "buildtest": "tsc --noEmit",
     "dynamodb": "sls dynamodb start --migrate"
