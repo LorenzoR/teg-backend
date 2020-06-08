@@ -50,11 +50,14 @@ class GameService {
 
   private MAX_DICES_PER_THROW = 3;
 
+  private GAMES_TABLE_NAME = process.env.GAMES_TABLE || 'teg-games-dev';
+
   // private dealService!: DealService;
 
   constructor(repository: any, diceService: DiceService) {
     this.repository = repository;
     this.diceService = diceService;
+    console.log('GAMES_TABLE_NAME', this.GAMES_TABLE_NAME);
     // this.dealService = dealService;
     /*
     this.repository = new DynamoDB.DocumentClient({
@@ -68,7 +71,7 @@ class GameService {
 
   public async newGame(UUID: string): Promise<boolean> {
     const params = {
-      TableName: 'games',
+      // TableName: this.GAMES_TABLE_NAME,
       Item: {
         UUID,
         players: [],
@@ -84,7 +87,7 @@ class GameService {
     };
 
     try {
-      const response = await this.repository.put('games', params);
+      const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
 
       if (response) {
         return response;
@@ -146,7 +149,7 @@ class GameService {
 
     try {
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -192,7 +195,7 @@ class GameService {
 
       try {
         const response = await this.repository.update(
-          'games',
+          this.GAMES_TABLE_NAME,
           { UUID },
           updateExpression,
           expressionAttributeValues,
@@ -266,7 +269,7 @@ class GameService {
         ':p': players,
       };
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -315,7 +318,7 @@ class GameService {
 
     try {
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -357,7 +360,7 @@ class GameService {
 
       try {
         const response = await this.repository.update(
-          'games',
+          this.GAMES_TABLE_NAME,
           { UUID },
           updateExpression,
           expressionAttributeValues,
@@ -425,7 +428,6 @@ class GameService {
     const expressionAttributeValues = {
       ':p': countriesAndMissions.players,
       ':c': countriesAndMissions.countries,
-      // ':cp': currentPlayerIndex,
       ':r': round,
       ':s': gameStatus,
       ':cc': countryCards,
@@ -435,7 +437,7 @@ class GameService {
 
     try {
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -469,7 +471,7 @@ class GameService {
     };
 
     try {
-      const response = await this.repository.get('games', params);
+      const response = await this.repository.get(this.GAMES_TABLE_NAME, params);
       if (response) {
         return response.Item;
       }
@@ -511,7 +513,7 @@ class GameService {
         };
 
         const response = await this.repository.update(
-          'games',
+          this.GAMES_TABLE_NAME,
           { UUID },
           updateExpression,
           expressionAttributeValues,
@@ -668,7 +670,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -803,7 +805,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -872,7 +874,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -981,7 +983,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1205,7 +1207,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1299,7 +1301,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1353,7 +1355,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1378,11 +1380,11 @@ class GameService {
 
   public async scanGames(): Promise<any> {
     const params = {
-      TableName: 'games',
+      TableName: this.GAMES_TABLE_NAME,
     };
 
     try {
-      const response = await this.repository.scan('games', params);
+      const response = await this.repository.scan(params);
       return response;
     } catch (error) {
       console.error(error);
@@ -1396,7 +1398,7 @@ class GameService {
     };
 
     try {
-      const response = await this.repository.delete('games', params);
+      const response = await this.repository.delete(this.GAMES_TABLE_NAME, params);
       if (response) {
         return true;
       }
@@ -1432,7 +1434,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1479,7 +1481,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,
@@ -1514,7 +1516,7 @@ class GameService {
       };
 
       const response = await this.repository.update(
-        'games',
+        this.GAMES_TABLE_NAME,
         { UUID },
         updateExpression,
         expressionAttributeValues,

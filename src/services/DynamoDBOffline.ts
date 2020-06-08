@@ -3,18 +3,27 @@ import { DynamoDB } from 'aws-sdk';
 class DynamoDBOffline {
   private DynamoDB = null;
 
-  constructor() {
-    this.DynamoDB = new DynamoDB.DocumentClient({
-      region: 'localhost',
-      endpoint: 'http://localhost:8000',
-      accessKeyId: 'DEFAULT_ACCESS_KEY', // needed if you don't have aws credentials at all in env
-      secretAccessKey: 'DEFAULT_SECRET', // needed if you don't have aws credentials at all in env
-    });
+  constructor(stage: string) {
+    console.log('Stage', stage);
+    if (stage === 'local') {
+      this.DynamoDB = new DynamoDB.DocumentClient({
+        region: 'localhost',
+        endpoint: 'http://localhost:8000',
+        accessKeyId: 'DEFAULT_ACCESS_KEY', // needed if you don't have aws credentials at all in env
+        secretAccessKey: 'DEFAULT_SECRET', // needed if you don't have aws credentials at all in env
+      });
+    } else {
+      this.DynamoDB = new DynamoDB.DocumentClient({
+        region: 'ap-southeast-2',
+      });
+    }
   }
 
   public async put(tableName: string, params: any): Promise<boolean> {
+    const paramsCopy = { TableName: tableName, ...params };
+
     try {
-      const response = await this.DynamoDB.put(params).promise();
+      const response = await this.DynamoDB.put(paramsCopy).promise();
       console.log('put response', response);
       return response;
     } catch (error) {
@@ -62,7 +71,7 @@ class DynamoDBOffline {
     }
   }
 
-  public async scan(tableName: string, params: any): Promise<boolean> {
+  public async scan(params: any): Promise<boolean> {
     try {
       const response = await this.DynamoDB.scan(params).promise();
       return response;

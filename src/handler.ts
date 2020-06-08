@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
-import { ApiGatewayManagementApi } from 'aws-sdk';
+// import { ApiGatewayManagementApi } from 'aws-sdk';
 import 'source-map-support/register';
 
 import GameService from './services/GameService';
@@ -8,14 +8,15 @@ import DynamoDBOffline from './services/DynamoDBOffline';
 import DiceService from './services/DiceService';
 import APIGatewayWebsocketsService from './services/APIGatewayWebsocketsService';
 
-import { PlayerTypes } from './models/Player';
+// import { PlayerTypes } from './models/Player';
 import { RoundType } from './models/Round';
 
 const diceService = new DiceService();
 
-const gameService = new GameService(new DynamoDBOffline(), diceService);
+const gameService = new GameService(new DynamoDBOffline(process.env.STAGE || 'local'), diceService);
 
-let endpoint = 'http://localhost:3001';
+// let endpoint = 'http://localhost:3001';
+let endpoint = '0su6p4d8cf.execute-api.ap-southeast-2.amazonaws.com/dev';
 
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(endpoint);
 
@@ -89,7 +90,7 @@ const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolea
 
 const sendGameInfoToAllPlayers = async (gameId: string): Promise<boolean> => {
   const game = await gameService.getGame(gameId);
-  const connectionIds = [];
+  // const connectionIds = [];
 
   if (!game || !game.players) {
     return null;
@@ -98,10 +99,10 @@ const sendGameInfoToAllPlayers = async (gameId: string): Promise<boolean> => {
   console.log('sending game info to players');
   const promises = [];
 
-  game.players.forEach((player, index) => {
+  game.players.forEach((player) => {
     // connectionIds.push(player.id);
-    const playerCopy = { ...player };
-    const players = { ...game.players };
+    // const playerCopy = { ...player };
+    // const players = { ...game.players };
 
     const payload = { action: 'sync', body: { ...game, currentPlayerId: player.id } };
 
@@ -142,38 +143,44 @@ const sendConnectionIdToEachPlayer = async (gameId: string): Promise<boolean> =>
 const setEndpointFromEvent = (event) => {
   if (event.requestContext.domainName !== 'localhost') {
     endpoint = `${event.requestContext.domainName}/${event.requestContext.stage}`;
-    apiGatewayWebsocketsService.setEndpoint(endpoint);
+    // apiGatewayWebsocketsService.setEndpoint(endpoint);
     console.log('endpoint', endpoint);
   }
 };
 
 export const connectHandler: APIGatewayProxyHandler = async (event, _context) => {
+  console.log('start', process.env);
   // Add to guests so we have the connection ID
   const gameId = getGameIdFromEvent(event);
+  console.log('got game ID', gameId);
 
   // Get players from game
   let game = await gameService.getGame(gameId);
+  console.log('got game', game);
 
   // Create game if there isn't one
   if (!game) {
-    console.log(`Creating game ID ${gameId}...`);
     await gameService.newGame(gameId);
+    console.log(`Created game ID ${gameId}`);
   }
 
-  console.log(`Adding guest ${event.requestContext.connectionId} to game ID ${gameId}`);
   await gameService.addGuest(gameId, event.requestContext.connectionId);
+  console.log(`Added guest ${event.requestContext.connectionId} to game ID ${gameId}`);
 
   game = await gameService.getGame(gameId);
+  console.log('got game', game);
 
   const response = { action: 'joinGame', body: game };
 
+  // setEndpointFromEvent(event);
+  // await apiGatewayWebsocketsService.send(event.requestContext.connectionId, JSON.stringify(response));
   setEndpointFromEvent(event);
-  await apiGatewayWebsocketsService.send(event.requestContext.connectionId, JSON.stringify(response));
+  await sendMessageToAllPlayers(gameId, JSON.stringify(response));
   console.log('message sent!');
 
   return {
     statusCode: 200,
-    body: 'connected',
+    body: JSON.stringify('connected'),
   };
 };
 
@@ -392,7 +399,7 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
   }
 
   try {
-    const response = await gameService.finishRound(gameId, playerColor);
+    await gameService.finishRound(gameId, playerColor);
   } catch (error) {
     console.error(error);
   }
@@ -436,7 +443,7 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
     };
   }
 
-  const response = await gameService.addTroops(gameId, playerColor, country, count);
+  await gameService.addTroops(gameId, playerColor, country, count);
   console.log('troops added');
 
   // Get game

@@ -1,4 +1,4 @@
-import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
+// import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
 class APIGatewayWebsocketsService {
@@ -27,6 +27,7 @@ class APIGatewayWebsocketsService {
 
         return true;
       } catch (error) {
+        console.error('APIGatewayWebsocketsService::send', error);
         return false;
       }
     }

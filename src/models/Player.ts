@@ -5,7 +5,7 @@ export interface Player {
   id: string;
   name: string;
   color: string;
-  troopsToAdd: { free: number };
+  troopsToAdd?: { free: number };
   mission?: Mission;
   cards?: Array<any>;
   canGetCard?: boolean;

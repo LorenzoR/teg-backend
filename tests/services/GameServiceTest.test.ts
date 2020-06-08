@@ -8,7 +8,7 @@ import DynamoDBOffline from '../../src/services/DynamoDBOffline';
 import DiceService from '../../src/services/DiceService';
 
 const diceService = new DiceService();
-const dynamoDBOffline = new DynamoDBOffline();
+const dynamoDBOffline = new DynamoDBOffline('local');
 const gameService = new GameService(dynamoDBOffline, diceService);
 
 const gameId = '1234';
@@ -135,21 +135,6 @@ describe('games service', () => {
     expect(countries[24].state.player.color).toBe(players[0].color);
   });
 
-  /*
-  it('can count countries for each player', async () => {
-    expect.hasAssertions();
-
-    const game = await gameService.startGame(gameId);
-
-    // Add troops to country
-    const countries = GameService.getCountriesByPlayer(game.countries, players[0].color);
-
-    expect(countries).toHaveLength(25);
-    expect(countries[0].state.player.color).toBe(players[0].color);
-    expect(countries[24].state.player.color).toBe(players[0].color);
-  });
-  */
-
   it('can count troops to add for each player', async () => {
     expect.hasAssertions();
 
@@ -186,8 +171,8 @@ describe('games service', () => {
 
     const countryKey = 'BRASIL';
 
-    const game = await gameService.getGame(gameId);
-    const country = _.find(game.countries, (obj) => obj.countryKey === countryKey);
+    // const game = await gameService.getGame(gameId);
+    // const country = _.find(game.countries, (obj) => obj.countryKey === countryKey);
 
     // Assign country to player
     await gameService.assignCountryToPlayer(gameId, players[1], countryKey);
@@ -422,9 +407,9 @@ describe('games service', () => {
   it('can re-connect player', async () => {
     expect.hasAssertions();
 
-    const player = await gameService.reConnectPlayer(gameId, 'red', '100');
+    const response = await gameService.reConnectPlayer(gameId, 'red', '100');
 
-    expect(player.color).toBe('red');
+    expect(response.player.color).toBe('red');
   });
 
   it('can scan games', async () => {

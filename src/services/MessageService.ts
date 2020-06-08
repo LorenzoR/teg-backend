@@ -1,5 +1,5 @@
 import GameService from './GameService';
-import DynamoDBOffline from './services/DynamoDBOffline';
+import DynamoDBOffline from './DynamoDBOffline';
 import APIGatewayWebsocketsService from './APIGatewayWebsocketsService';
 
 interface Dependencies {
@@ -16,7 +16,7 @@ class MessageService {
     if (dependencies.gameService) {
       this.gameService = dependencies.gameService;
     } else {
-      const dynamoDBOffline = new DynamoDBOffline();
+      const dynamoDBOffline = new DynamoDBOffline('local');
       this.gameService = new GameService(dynamoDBOffline, null);
     }
   }
