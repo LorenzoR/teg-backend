@@ -10,7 +10,9 @@ cache:
     - node_modules
 before_install:
   - npm update
+  - npm install -g serverless
 install:
   - npm install
 script:
+  - sls dynamodb start --migrate --stage dev
   - npm run coveralls
