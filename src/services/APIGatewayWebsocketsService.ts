@@ -45,7 +45,8 @@ class APIGatewayWebsocketsService {
       promises.push(this.send(connectionId, data));
     });
 
-    await Promise.all(promises);
+    const response = await Promise.all(promises);
+    console.log('Broadcast response', response);
 
     return true;
   }

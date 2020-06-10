@@ -124,6 +124,7 @@ const COUNTRY_CARDS = [
 export interface CountryCardType {
   country: string;
   type: string;
+  exchanged?: boolean;
 }
 
 const CardsForExchange = {

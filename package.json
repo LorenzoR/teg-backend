@@ -9,7 +9,7 @@
     "debug-test": "node --inspect-brk=9230 ./node_modules/.bin/jest -i",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "buildtest": "tsc --noEmit",
-    "dynamodb": "sls dynamodb start --migrate"
+    "dynamodb": "sls dynamodb start --migrate --stage local"
   },
   "dependencies": {
     "aws-lambda": "^1.0.6",

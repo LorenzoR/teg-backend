@@ -10,6 +10,7 @@ export interface Player {
   cards?: Array<any>;
   canGetCard?: boolean;
   cardExchangesCount?: number;
+  isAdmin?: boolean;
 }
 
 export const PlayerTypes = {

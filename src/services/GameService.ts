@@ -2,8 +2,9 @@
 // import { DynamoDB } from 'aws-sdk';
 import _ from 'lodash';
 
+import Game from '../models/Game';
 import { Player } from '../models/Player';
-// import { Country } from '../models/Country';
+import { CountryType } from '../models/Country';
 import { RoundType } from '../models/Round';
 
 import DealService from './DealService';
@@ -69,7 +70,7 @@ class GameService {
     */
   }
 
-  public async newGame(UUID: string): Promise<boolean> {
+  public async newGame(UUID: string): Promise<Game | null> {
     const params = {
       // TableName: this.GAMES_TABLE_NAME,
       Item: {
@@ -83,6 +84,8 @@ class GameService {
           playerIndex: 0,
         },
         eventsLog: [],
+        countries: null,
+        countryCards: [],
       },
     };
 
@@ -90,14 +93,155 @@ class GameService {
       const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
 
       if (response) {
+        return new Game(params.Item);
+      }
+
+      // TODO. Handle error
+      return null;
+    } catch (error) {
+      console.log(error);
+      return null;
+    }
+  }
+
+  public async getGame(UUID: string): Promise<Game | null> {
+    if (!UUID) {
+      return null;
+    }
+
+    const params = {
+      UUID,
+    };
+
+    try {
+      const response = await this.repository.get(this.GAMES_TABLE_NAME, params);
+      if (response && response.Item) {
+        return new Game(response.Item);
+      }
+      // TODO. Handle error
+      return null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  public async updateGame3(game: Game): Promise<Game | null> {
+    // Delete game
+    await this.deleteGame(game.UUID);
+
+    // Insert new game
+    try {
+      const params = {
+        // TableName: this.GAMES_TABLE_NAME,
+        Item: game.getGame(),
+      };
+
+      const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
+
+      if (response) {
         return response;
       }
 
       // TODO. Handle error
-      return false;
+      return null;
     } catch (error) {
-      console.log(error);
-      return false;
+      console.error('GameService::updateGame()', error);
+      return null;
+    }
+  }
+
+  public async updateGame(game: Game): Promise<Game | null> {
+    // Update game
+    const updateExpression = 'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc, guests = :g, eventsLog = :e, winner = :w';
+    const expressionAttributeValues = {
+      ':p': game.players,
+      ':c': game.countries,
+      ':r': game.round,
+      ':s': game.gameStatus,
+      ':cc': game.countryCards,
+      ':g': game.guests,
+      ':e': game.eventsLog,
+      ':w': game.winner,
+    };
+
+    try {
+      const response = await this.repository.update(
+        this.GAMES_TABLE_NAME,
+        { UUID: game.UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return response;
+      }
+
+      // TODO. Handle error
+      return null;
+    } catch (error) {
+      console.error('GameService::updateGame() error', error);
+      return null;
+    }
+  }
+
+  public async updateCountry(UUID: string, country: CountryType): Promise<Game | null> {
+    // Update game
+    const updateExpression = 'set countries.#countryKey = :c';
+    const expressionAttributeNames = {
+      '#countryKey': country.countryKey,
+    };
+
+    const expressionAttributeValues = {
+      ':c': country,
+    };
+
+    try {
+      const response = await this.repository.update(
+        this.GAMES_TABLE_NAME,
+        { UUID },
+        updateExpression,
+        expressionAttributeValues,
+        expressionAttributeNames,
+      );
+
+      if (response) {
+        return response;
+      }
+
+      // TODO. Handle error
+      return null;
+    } catch (error) {
+      console.error('GameService::updateCountriesAndPlayers() error', error);
+      return null;
+    }
+  }
+
+  public async updateCountriesAndPlayers(game: Game): Promise<Game | null> {
+    // Update game
+    const updateExpression = 'set players = :p, countries= :c';
+    const expressionAttributeValues = {
+      ':p': game.players,
+      ':c': game.countries,
+    };
+
+    try {
+      const response = await this.repository.update(
+        this.GAMES_TABLE_NAME,
+        { UUID: game.UUID },
+        updateExpression,
+        expressionAttributeValues,
+      );
+
+      if (response) {
+        return response;
+      }
+
+      // TODO. Handle error
+      return null;
+    } catch (error) {
+      console.error('GameService::updateCountriesAndPlayers() error', error);
+      return null;
     }
   }
 
@@ -345,10 +489,10 @@ class GameService {
     const game = await this.getGame(UUID);
 
     if (game && game.guests) {
-      _.remove(game.guests, (obj) => obj.id === guestId);
+      const removedGuest = _.remove(game.guests, (obj) => obj.id === guestId);
 
-      // If waiting for players and there is only one guest, make it admin
-      if (game.guests && game.guests.length === 1 && game.gameStatus === GameStatusType.WAITING_PLAYERS) {
+      // If waiting for players and there is only one guest or removed player was admin, make first player admin
+      if (game.guests && game.gameStatus === GameStatusType.WAITING_PLAYERS && (game.guests.length === 1 || removedGuest.isAdmin)) {
         const guest = game.guests[0];
         guest.isAdmin = true;
       }
@@ -465,24 +609,6 @@ class GameService {
     return new Date().getTime();
   }
 
-  public async getGame(UUID: string): Promise<any> {
-    const params = {
-      UUID,
-    };
-
-    try {
-      const response = await this.repository.get(this.GAMES_TABLE_NAME, params);
-      if (response) {
-        return response.Item;
-      }
-      // TODO. Handle error
-      return null;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  }
-
   public async finishRound(UUID: string, playerColor: string): Promise<any> {
     // Get game
     const game = await this.getGame(UUID);
@@ -502,7 +628,7 @@ class GameService {
     // Game finished!
     if (MissionService.missionCompleted(mission, currentPlayerCountries)) {
       console.log('Mission completed!');
-      game.winner = 1;
+      game.winner = playerColor;
       game.gameStatus = GameStatusType.FINISHED;
 
       // Save game
@@ -704,7 +830,7 @@ class GameService {
   public static calculateTroopsToAdd(players: Player[], countries: {}): { } {
     const troopsPerPlayer = { };
     const countriesPerPlayer = { };
-    const initialCount = { total: 0 };
+    const initialCount = { free: 0, total: 0 };
 
     initialCount[ContinentTypes.AFRICA] = 0;
     initialCount[ContinentTypes.ASIA] = 0;
@@ -729,31 +855,38 @@ class GameService {
     console.log('countriesPerPlayer', countriesPerPlayer);
 
     _.forIn(countriesPerPlayer, (value, key) => {
-      troopsPerPlayer[key].free = Math.floor(value.total / 2);
+      troopsPerPlayer[key].free = Math.floor(value.free / 2);
+      troopsPerPlayer[key].total = troopsPerPlayer[key].free;
 
       // Check continents
       if (countriesPerPlayer[key][ContinentTypes.AFRICA] && countriesPerPlayer[key][ContinentTypes.AFRICA] === 6) {
         troopsPerPlayer[key][ContinentTypes.AFRICA] = ContinentBonus.AFRICA;
+        troopsPerPlayer[key].total += ContinentBonus.AFRICA;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.ASIA] && countriesPerPlayer[key][ContinentTypes.ASIA] === 15) {
         troopsPerPlayer[key][ContinentTypes.ASIA] = ContinentBonus.ASIA;
+        troopsPerPlayer[key].total += ContinentBonus.ASIA;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.EUROPE] && countriesPerPlayer[key][ContinentTypes.EUROPE] === 9) {
         troopsPerPlayer[key][ContinentTypes.EUROPE] = ContinentBonus.EUROPE;
+        troopsPerPlayer[key].total += ContinentBonus.EUROPE;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] === 10) {
         troopsPerPlayer[key][ContinentTypes.NORTH_AMERICA] = ContinentBonus.NORTH_AMERICA;
+        troopsPerPlayer[key].total += ContinentBonus.NORTH_AMERICA;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.OCEANIA] && countriesPerPlayer[key][ContinentTypes.OCEANIA] === 4) {
         troopsPerPlayer[key][ContinentTypes.OCEANIA] = ContinentBonus.OCEANIA;
+        troopsPerPlayer[key].total += ContinentBonus.OCEANIA;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] === 6) {
         troopsPerPlayer[key][ContinentTypes.SOUTH_AMERICA] = ContinentBonus.SOUTH_AMERICA;
+        troopsPerPlayer[key].total += ContinentBonus.SOUTH_AMERICA;
       }
     });
 
@@ -1499,7 +1632,7 @@ class GameService {
     }
   }
 
-  public async setRoundType(UUID: string, roundType: string): Promise<any> {
+  public async setRoundType(UUID: string, roundType: string, playerColor = null): Promise<any> {
     const game = await this.getGame(UUID);
 
     if (!game) {
@@ -1508,6 +1641,12 @@ class GameService {
 
     // Set round type
     game.round.type = roundType;
+
+    if (playerColor) {
+      // Get index
+      const playerIndex = _.findIndex(game.players, (obj) => obj.color === playerColor);
+      game.round.playerIndex = playerIndex;
+    }
 
     try {
       const updateExpression = 'set round = :r';

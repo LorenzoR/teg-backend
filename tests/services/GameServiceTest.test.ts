@@ -186,6 +186,26 @@ describe('games service', () => {
     await expect(gameService.addTroops(gameId, players[0].color, countryKey, newTroops)).rejects.toThrow(errorMsg);
   });
 
+  it('can add troops to country and update game', async () => {
+    expect.hasAssertions();
+
+    // Assign country to player
+    const countryKey = 'BRASIL';
+    await gameService.assignCountryToPlayer(gameId, players[0], countryKey);
+
+    // Set round to add troops
+    await gameService.setRoundType(gameId, 'addTroops', players[0].color);
+
+    const game = await gameService.getGame(gameId);
+    const newTroops = 4;
+    game.addTroops(players[0].id, countryKey, newTroops);
+
+    // Update game
+    const response = await gameService.updateCountry(gameId, game.countries[countryKey]);
+
+    expect(response.countries[countryKey].state.troops).toBe(newTroops + 1);
+  });
+
   it('can add troops to country', async () => {
     expect.hasAssertions();
 

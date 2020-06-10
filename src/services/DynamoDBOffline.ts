@@ -32,11 +32,18 @@ class DynamoDBOffline {
     }
   }
 
-  public async update(TableName: string, Key: any, UpdateExpression: any, ExpressionAttributeValues: any): Promise<boolean> {
+  public async update(
+    TableName: string,
+    Key: any,
+    UpdateExpression: any,
+    ExpressionAttributeValues: any,
+    ExpressionAttributeNames = null,
+  ): Promise<boolean> {
     const params = {
       TableName,
       Key,
       UpdateExpression,
+      ExpressionAttributeNames,
       ExpressionAttributeValues,
       ReturnValues: 'UPDATED_NEW',
     };

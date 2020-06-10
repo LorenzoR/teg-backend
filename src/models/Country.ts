@@ -1,6 +1,6 @@
 import { Player } from './Player';
 
-export interface Country {
+export interface CountryType {
   countryKey: string;
   name: string;
   state: {

@@ -15,6 +15,7 @@ custom:
     # If you only want to use DynamoDB Local in some stages, declare them here
     stages:
       - dev
+      - local
     start:
       port: 8000
       inMemory: true
@@ -67,6 +68,12 @@ functions:
     events:
       - websocket:
           route: joinGame
+          routeResponseSelectionExpression: $default
+  getPlayers:
+    handler: src/handler.getPlayersHandler
+    events:
+      - websocket:
+          route: getPlayers
           routeResponseSelectionExpression: $default
   reConnect:
     handler: src/handler.reConnectHandler

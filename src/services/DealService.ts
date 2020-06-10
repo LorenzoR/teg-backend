@@ -19,6 +19,7 @@ class DealService {
       const country = {
         countryKey,
         name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
+        // continent: CountryService.getContinent(countryKey),
         state: {
           player: players[counter % numberOfPlayers],
           troops: 1,
