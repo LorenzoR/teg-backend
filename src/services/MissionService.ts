@@ -138,7 +138,7 @@ class MissionService {
 
   public static missionCompleted(mission: Mission, countries: any): boolean {
     // If conqueres countries === 30 then mission completed
-    if (countries && countries.length === CONQUERED_COUNTRIES_TO_WIN) {
+    if (countries && countries.length >= CONQUERED_COUNTRIES_TO_WIN) {
       return true;
     }
 

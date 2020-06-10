@@ -194,37 +194,74 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
   // Get game
   const game = await gameService.getGame(gameId);
 
+  let payload;
+  let isAdmin = false;
+
   // If game has started, send message
   if (game && game.gameStatus === 'started') {
-    const player = _.find(game.guests, (obj) => obj.id === playerId);
+    // const player = _.find(game.guests, (obj) => obj.id === playerId);
 
     // Remove from players
-    const removedPlayer = await gameService.removePlayer(gameId, playerId);
+    const removedPlayer = game.removePlayer(playerId);
+    // const removedPlayer = await gameService.removePlayer(gameId, playerId);
     console.log('Players Removed!', removedPlayer);
 
-    const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer.name };
-    const payload = { action: 'playerDisconnected', body: payloadBody };
+    // Update game
+    await gameService.updateGame(game);
+    console.log('Game updated');
 
-    setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer.name };
+    payload = { action: 'playerDisconnected', body: payloadBody };
+
+    // setEndpointFromEvent(event);
+    // await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
   } else if (game && game.gameStatus === 'waitingPlayers') {
     // Look in guests
-    const player = _.find(game.guests, (obj) => obj.id === playerId);
+    let player = _.find(game.guests, (obj) => obj.id === playerId);
+
+    // If not found, look in players
+    if (!player) {
+      player = _.find(game.players, (obj) => obj.id === playerId);
+    }
+
+    if (!player) {
+      console.error(`Player ${playerId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Player ${playerId} not found`),
+      };
+    }
 
     // Remove from guests
-    await gameService.removeGuest(gameId, playerId);
-    console.log('Guest Removed!');
+    // await gameService.removeGuest(gameId, playerId);
+    game.removeGuest(playerId);
+    console.log(`Guest ${playerId} removed!`);
 
-    const payloadBody = { isAdmin: player.isAdmin };
-    const payload = { action: 'guestDisconnected', body: payloadBody };
+    isAdmin = player.isAdmin;
 
-    setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
-
-    // If admin left, delete game
-    if (player.isAdmin) {
-      await gameService.deleteGame(gameId);
+    // Update game only if player was not admin
+    // If player is admin game will be removed so no need to update
+    if (!isAdmin) {
+      await gameService.updateGame(game);
+      console.log('Game updated');
     }
+
+
+    const payloadBody = { isAdmin };
+    payload = { action: 'guestDisconnected', body: payloadBody };
+
+    // setEndpointFromEvent(event);
+    // await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+  }
+
+  setEndpointFromEvent(event);
+  await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+  console.log('Message sent', payload);
+
+  // If admin left, delete game
+  if (isAdmin) {
+    await gameService.deleteGame(gameId);
   }
 
   return {
@@ -243,31 +280,30 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
   let response;
 
   // Get game
-  let game = await gameService.getGame(gameId);
+  const game = await gameService.getGame(gameId);
 
-  if (game.gameStatus === 'started') {
+  if (game.hasStarted()) {
     // Game already started so try to reconnect
     // Try to get game
     if (cachedConnectionId) {
       console.log('Cached!');
-      // const game = await gameService.getGame(gameId);
+      // Check if player color and Id match
+      const player = game.getPlayerByColor(color);
 
-      if (game && game.gameStatus === 'started') {
-        // Check if player color and Id match
-        const player = await gameService.getPlayerByColor(gameId, color);
-
-        // Player color and ID ok
-        if (player && player.id === cachedConnectionId) {
-          response = await gameService.reConnectPlayer(gameId, color, connectionId);
-        }
+      // Player color and ID ok
+      if (player && player.id === cachedConnectionId) {
+        response = game.reConnectPlayer(color, connectionId);
       }
     } else {
-      response = await gameService.reConnectPlayer(gameId, color, connectionId);
+      response = game.reConnectPlayer(color, connectionId);
     }
 
     // Remove guest with those IDs
-    await gameService.removeGuest(gameId, connectionId);
-    await gameService.removeGuest(gameId, cachedConnectionId);
+    game.removeGuest(connectionId);
+
+    if (cachedConnectionId) {
+      game.removeGuest(cachedConnectionId);
+    }
 
     if (response) {
       console.log('response', response);
@@ -275,7 +311,7 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
       // Send game info to everyone
       setEndpointFromEvent(event);
       await sendGameInfoToAllPlayers(gameId);
-      console.log('message sent to all players!');
+      console.log('Message sent to all players!');
 
       // Send re-connected player
       const payload = {
@@ -297,21 +333,25 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
       color: eventBody.data.color,
     };
 
-    await gameService.addPlayer(gameId, newPlayer);
-    console.log('Player added!');
+    game.addPlayer(newPlayer);
+    console.log(`Player ${newPlayer.color} added!`);
 
     // Remove from guests
-    await gameService.removeGuest(gameId, newPlayer.id);
+    game.removeGuest(newPlayer.id);
 
     // Send message with players
-    game = await gameService.getGame(gameId);
+    // game = await gameService.getGame(gameId);
 
     response = { action: 'joinGame', body: game };
     // await send(endpoint, event.requestContext.c, JSON.stringify(response));
     setEndpointFromEvent(event);
     await sendMessageToAllPlayers(gameId, JSON.stringify(response));
-    console.log('message sent to all players!');
+    console.log('Message sent to all players!');
   }
+
+  // Update game
+  // TODO. This should be done before sending message to players
+  await gameService.updateGame(game);
 
   return {
     statusCode: 200,
@@ -368,32 +408,48 @@ export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) 
   const { gameId, color, cachedConnectionId } = eventBody.data;
   const { connectionId } = event.requestContext;
 
+  const game = await gameService.getGame(gameId);
+
+  if (!game) {
+    console.error(`Game ID ${gameId} not found`);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(`Game ID ${gameId} not found`),
+    };
+  }
+
   let response;
 
   // Try to get game
   if (cachedConnectionId) {
     console.log('cached!');
-    const game = await gameService.getGame(gameId);
 
-    if (game && game.gameStatus === 'started') {
+    if (game.hasStarted()) {
       // Check if player color and Id match
-      const player = await gameService.getPlayerByColor(gameId, color);
+      const player = game.getPlayerByColor(color);
 
       // Player color and ID ok
       if (player && player.id === cachedConnectionId) {
-        response = await gameService.reConnectPlayer(gameId, color, connectionId);
+        response = game.reConnectPlayer(color, connectionId);
       }
     }
   } else {
-    response = await gameService.reConnectPlayer(gameId, color, connectionId);
+    response = game.reConnectPlayer(color, connectionId);
   }
 
   // Remove guest with those IDs
-  await gameService.removeGuest(gameId, connectionId);
-  await gameService.removeGuest(gameId, cachedConnectionId);
+  game.removeGuest(connectionId);
+
+  if (cachedConnectionId) {
+    game.removeGuest(cachedConnectionId);
+  }
 
   if (response) {
     console.log('response', response);
+
+    // Update game
+    await gameService.updateGame(game);
 
     // Send game info to everyone
     setEndpointFromEvent(event);
@@ -420,27 +476,39 @@ export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) 
 };
 
 export const startGameHandler: APIGatewayProxyHandler = async (event, _context) => {
-  console.log('Start Game!!');
+  console.log('Start Game handler');
 
-  // Start game
-  // const gameId = getGameIdFromEvent(event);
   const eventBody = JSON.parse(event.body);
   const { gameId } = eventBody.data;
-  const game = await gameService.startGame(gameId);
-  console.log('game started!');
+
+  const game = await gameService.getGame(gameId);
+
+  if (!game) {
+    console.error(`Game ID ${gameId} not found`);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(`Game ID ${gameId} not found`),
+    };
+  }
+
+  game.startGame();
+  console.log('Game started!');
+
+  await gameService.updateGame(game);
 
   const response = { action: 'gameStarted', body: game };
 
   setEndpointFromEvent(event);
   await sendMessageToAllPlayers(gameId, JSON.stringify(response));
-  console.log('message sent to all players!');
+  console.log('Message sent to all players!');
 
   // Send connection ID to each player
   await sendConnectionIdToEachPlayer(gameId);
 
   return {
     statusCode: 200,
-    body: JSON.stringify('joinGameHandler OK!'),
+    body: JSON.stringify('startGameHandler OK!'),
   };
 };
 
@@ -454,6 +522,16 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
 
   // Get game
   const game = await gameService.getGame(gameId);
+
+  if (!game) {
+    console.error(`Game ID ${gameId} not found`);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(`Game ID ${gameId} not found`),
+    };
+  }
+
   console.log(`Got game ${gameId}`);
 
   // Finish round
@@ -483,45 +561,6 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
   return {
     statusCode: 200,
     body: JSON.stringify('finish turn OK!'),
-  };
-};
-
-export const finishRoundHandlerBAK: APIGatewayProxyHandler = async (event, _context) => {
-  console.log('Finish round');
-
-  const eventBody = JSON.parse(event.body);
-  const { gameId, playerId, playerColor } = eventBody.data;
-
-  // Check if it's that player's round
-  const player = await gameService.getPlayerById(gameId, playerId);
-  const game1 = await gameService.getGame(gameId);
-
-  if (player.color !== game1.players[game1.round.playerIndex].color) {
-    // throw new Error(`Not ${playerId} round`);
-    return {
-      statusCode: 401,
-      body: `Not ${playerId} round`,
-    };
-  }
-
-  try {
-    await gameService.finishRound(gameId, playerColor);
-  } catch (error) {
-    console.error(error);
-  }
-
-  // Get game
-  const game = await gameService.getGame(gameId);
-
-  const message = { action: 'roundFinished', body: game };
-
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(message));
-  console.log('message sent to all players!');
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('addTroops OK!'),
   };
 };
 
@@ -558,48 +597,6 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
   return {
     statusCode: 200,
     body: JSON.stringify(response),
-  };
-};
-
-export const addTroopsHandlerBAK: APIGatewayProxyHandler = async (event, _context) => {
-  console.log('Add troops');
-
-  // Start game
-  // const gameId = getGameIdFromEvent(event);
-  const eventBody = JSON.parse(event.body);
-  const {
-    gameId, country, count, playerColor,
-  } = eventBody.data;
-
-  const playerId = event.requestContext.connectionId;
-
-  // Check if it's that player's round
-  const player = await gameService.getPlayerById(gameId, playerId);
-  const game1 = await gameService.getGame(gameId);
-
-  if (player.color !== game1.players[game1.round.playerIndex].color) {
-    // throw new Error(`Not ${playerId} round`);
-    return {
-      statusCode: 401,
-      body: `Not ${playerId} round`,
-    };
-  }
-
-  await gameService.addTroops(gameId, playerColor, country, count);
-  console.log('troops added');
-
-  // Get game
-  const game = await gameService.getGame(gameId);
-
-  const message = { action: 'troopsAdded', body: game };
-
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(message));
-  console.log('message sent to all players!');
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('addTroops OK!'),
   };
 };
 
@@ -829,7 +826,6 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
 
   // Get game
   const game = await gameService.getGame(gameId);
-  console.log(`Got game ID ${gameId}`);
 
   if (!game) {
     console.error(`Game ID ${gameId} not found`);
@@ -839,6 +835,8 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
       body: JSON.stringify(`Game ID ${gameId} not found`),
     };
   }
+
+  console.log(`Got game ID ${gameId}`);
 
   try {
     const response = game.exchangeCards(playerId, cards);

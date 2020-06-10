@@ -12,6 +12,7 @@ import CountryCard from './CountryCard';
 import CountryService from '../services/CountryService';
 import MissionService from '../services/MissionService';
 import DiceService from '../services/DiceService';
+import DealService from '../services/DealService';
 
 interface EventsLogType {
   type: string;
@@ -111,6 +112,54 @@ class Game {
     };
   }
 
+  // Start a game
+  public startGame(): Game {
+    // Set first round
+    const round = {
+      count: 1,
+      type: RoundType.FIRST_ADD_TROOPS,
+      playerIndex: 0,
+    };
+
+    // Troops to add
+    this.players.forEach((player) => {
+      // eslint-disable-next-line no-param-reassign
+      player.troopsToAdd = { free: FIRST_ROUND_TROOPS };
+    });
+
+    // Add countries and missions
+    const countriesAndMissions = DealService.dealCountriesAndMissions(this.players);
+
+    // Country cards
+    const countryCards = DealService.dealCountryCards();
+
+    // Set status to STARTED
+    const gameStatus = GameStatusType.STARTED;
+
+    // Remove guests
+    this.guests = [];
+
+    // Add event
+    this.eventsLog.unshift({
+      time: Game.getCurrentTimestamp(),
+      text: 'Game started',
+      type: 'gameStarted',
+    });
+
+    // Return game;
+    this.countries = countriesAndMissions.countries;
+    this.players = countriesAndMissions.players;
+    this.round = round;
+    this.gameStatus = gameStatus;
+    this.countryCards = countryCards;
+
+    return this;
+  }
+
+  public hasStarted(): boolean {
+    return this.gameStatus === 'started';
+  }
+
   // Add a guest
   public addGuest(guestId: string): Game | null {
     if (!guestId) {
@@ -198,25 +247,25 @@ class Game {
   public removePlayer(playerId: string): any {
     let removedPlayer = null;
 
-    if (this.players) {
-      if (this.gameStatus === GameStatusType.STARTED) {
-        // If game has started set status to offline so player can re-connect
-        removedPlayer = _.find(this.players, (obj) => obj.id === playerId);
-        if (removedPlayer) {
-          // removedPlayer.id = null;
-          removedPlayer.playerStatus = 'offline';
-        }
-      } else {
-        // If game hasn't started just remove player
-        removedPlayer = _.remove(this.players, (obj) => obj.id === playerId);
-      }
-
-      console.log('Removed player', removedPlayer);
-
-      return removedPlayer && removedPlayer.length ? removedPlayer[0] : removedPlayer;
+    if (!this.players) {
+      return null;
     }
 
-    return true;
+    if (this.gameStatus === GameStatusType.STARTED) {
+      // If game has started set status to offline so player can re-connect
+      removedPlayer = _.find(this.players, (obj) => obj.id === playerId);
+      if (removedPlayer) {
+        // removedPlayer.id = null;
+        removedPlayer.playerStatus = 'offline';
+      }
+    } else {
+      // If game hasn't started just remove player
+      removedPlayer = _.remove(this.players, (obj) => obj.id === playerId);
+    }
+
+    console.log('Removed player', removedPlayer);
+
+    return removedPlayer && removedPlayer.length ? removedPlayer[0] : removedPlayer;
   }
 
   // Re-connect a player
@@ -881,7 +930,7 @@ class Game {
     return true;
   }
 
-  private getPlayerByColor(playerColor: string): Player {
+  public getPlayerByColor(playerColor: string): Player {
     if (!this.players || this.players.length === 0) {
       return null;
     }
