@@ -15,4 +15,5 @@ install:
   - npm install
 script:
   - sls dynamodb install
-  - sls dynamodb start --migrate --stage dev && npm run coveralls
+  - sls dynamodb start --migrate --stage dev & sleep 10 && npm run coveralls
+  - pgrep -f "DynamoDBLocal.jar" | xargs kill
