@@ -14,5 +14,6 @@ before_install:
 install:
   - npm install
 script:
+  - sls dynamodb install
   - sls dynamodb start --migrate --stage dev
   - npm run coveralls
