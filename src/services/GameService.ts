@@ -855,7 +855,7 @@ class GameService {
     console.log('countriesPerPlayer', countriesPerPlayer);
 
     _.forIn(countriesPerPlayer, (value, key) => {
-      troopsPerPlayer[key].free = Math.floor(value.free / 2);
+      troopsPerPlayer[key].free = Math.floor(value.total / 2);
       troopsPerPlayer[key].total = troopsPerPlayer[key].free;
 
       // Check continents
