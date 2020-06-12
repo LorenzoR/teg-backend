@@ -4,8 +4,10 @@
   "description": "Serverless webpack example using Typescript",
   "main": "handler.js",
   "scripts": {
-    "offline": "nodemon -e js,ts,yml --ignore node_modules --exec serverless offline start",
+    "offline2": "nodemon -e js,ts,yml --ignore node_modules --exec serverless offline start",
+    "offline": "serverless offline --stage local",
     "test": "NODE_ENV=test ./node_modules/.bin/jest --ci --verbose --coverage --forceExit --detectOpenHandles",
+    "test2": "sls dynamodb start --migrate --stage dev & sleep 10 && npm run test && kill -9 `lsof -t -i:8000`",
     "debug-test": "node --inspect-brk=9230 ./node_modules/.bin/jest -i",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "buildtest": "tsc --noEmit",

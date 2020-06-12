@@ -2,12 +2,12 @@
 import _ from 'lodash';
 
 import { Player } from './Player';
-// import { Country } from './Country';
-import { CountryCardType } from './CountryCard';
+import Country from './Country';
+import CountryCard, { CountryCardType } from './CountryCard';
 import { RoundType } from './Round';
-import { CountryType } from './Country';
+// import { CountryType } from './Country';
 import { ContinentTypes } from './Continent';
-import CountryCard from './CountryCard';
+
 
 import CountryService from '../services/CountryService';
 import MissionService from '../services/MissionService';
@@ -64,15 +64,15 @@ const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65
 class Game {
   public UUID: string;
 
-  public guests?: Player [];
+  public guests: Player [] = [];
 
-  public players?: Player [];
+  public players?: Player [] = [];
 
   public countries?: { any };
 
   public round: RoundType;
 
-  public eventsLog?: EventsLogType[];
+  public eventsLog?: EventsLogType[] = [];
 
   public countryCards?: CountryCardType[];
 
@@ -82,7 +82,7 @@ class Game {
 
   private diceService!: DiceService;
 
-  constructor(game: GameType) {
+  public constructor(game: GameType) {
     if (game) {
       this.UUID = game.UUID;
       this.guests = game.guests;
@@ -140,11 +140,11 @@ class Game {
     this.guests = [];
 
     // Add event
-    this.eventsLog.unshift({
+    this.eventsLog = [{
       time: Game.getCurrentTimestamp(),
       text: 'Game started',
       type: 'gameStarted',
-    });
+    }];
 
     // Return game;
     this.countries = countriesAndMissions.countries;
@@ -290,7 +290,7 @@ class Game {
   }
 
   // Add troops to a country
-  public addTroops(playerId: string, country: string, amount: number): CountryType {
+  public addTroops(playerId: string, countryKey: string, amount: number): Country {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -303,53 +303,49 @@ class Game {
 
     // Check if it's that player's round
     if (!this.isPlayerTurn(playerColor)) {
-      console.error(`Not player ${playerColor} turn`);
-      return null;
+      throw new Error(`Not player ${playerColor} turn`);
     }
 
     if (![RoundType.ADD_TROOPS, RoundType.FIRST_ADD_TROOPS, RoundType.SECOND_ADD_TROOPS].includes(this.round.type)) {
-      console.error(`Can not add troops in round ${this.round.type}.`);
-      return null;
+      throw new Error(`Can not add troops in round ${this.round.type}.`);
     }
 
-    if (!this.countries || !this.countries[country]) {
+    // Get country
+    const country = this.countries[countryKey];
+
+    if (!this.countries || !country) {
       // TODO. Handle error
-      console.error(`Country ${country} not found`);
-      return null;
+      throw new Error(`Country ${country.countryKey} not found`);
     }
 
-    if (this.countries[country].state.player.color !== playerColor) {
-      console.error(`Country ${country} does not belong to ${playerColor}`);
-      return null;
+    if (country.state.player.color !== playerColor) {
+      throw new Error(`Country ${country.countryKey} does not belong to ${playerColor}`);
     }
 
     if (!player) {
-      console.error(`Player ${playerColor} not found`);
-      return null;
+      throw new Error(`Player ${playerColor} not found`);
     }
 
     // If player has continent bonus, try to use those troops first
-    const continent = CountryService.getContinent(country);
+    const continent = country.getContinent();
 
     if (amount > 0) {
       // Adding troops
       if (player.troopsToAdd[continent] >= amount) {
         // Continent bonus
         player.troopsToAdd[continent] -= amount;
-        this.countries[country].state.newTroops += amount;
+        country.state.newTroops += amount;
       } else if (player.troopsToAdd.free >= amount) {
         // Check if player has free troops
         player.troopsToAdd.free -= amount;
-        this.countries[country].state.newTroops += amount;
+        country.state.newTroops += amount;
       } else {
-        console.error(`Can not add more than ${player.troopsToAdd.free} troops`);
-        return null;
+        throw new Error(`Can not add more than ${player.troopsToAdd.free} troops`);
       }
     } else if (amount < 0) {
       // Removing troops
-      if (this.countries[country].state.newTroops < 1) {
-        console.error(`Can not remove more than ${this.countries[country].state.troops} from ${country}`);
-        return null;
+      if (country.state.newTroops < 1) {
+        throw new Error(`Can not remove more than ${country.state.troops} from ${country.countryKey}`);
       }
 
       // If player had continent bonus, put troops back there
@@ -360,16 +356,16 @@ class Game {
         player.troopsToAdd.free -= amount;
       }
 
-      this.countries[country].state.newTroops += amount;
+      country.state.newTroops += amount;
     }
 
     // Add event
     let eventText = null;
 
     if (amount > 0) {
-      eventText = `Player ${playerColor} added ${amount} troops to ${country}`;
+      eventText = `Player ${playerColor} added ${amount} troops to ${country.countryKey}`;
     } else {
-      eventText = `Player ${playerColor} removed ${amount} troops from ${country}`;
+      eventText = `Player ${playerColor} removed ${amount} troops from ${country.countryKey}`;
     }
 
     this.eventsLog.unshift({
@@ -380,7 +376,7 @@ class Game {
 
     console.log(eventText);
 
-    return this.countries[country];
+    return country;
   }
 
   // Finish player turn
@@ -515,12 +511,12 @@ class Game {
 
     let countryConquered = false;
 
-    if (attacker.state.troops <= 1) {
-      throw new Error('Attacker needs at least 2 troops to attack');
-    }
-
     if (attacker.state.player.color !== playerColor) {
       throw new Error(`Country ${attackerKey} does not belong to ${playerColor}`);
+    }
+
+    if (attacker.state.troops <= 1) {
+      throw new Error('Attacker needs at least 2 troops to attack');
     }
 
     if (this.round.type !== RoundType.ATTACK) {
@@ -707,13 +703,6 @@ class Game {
       throw new Error('Source and target can not be the same');
     }
 
-    // TODO. check if neighbors
-    if (false) {
-      throw new Error(
-        `Country ${sourceKey} is not a neighbour of ${targetKey}`,
-      );
-    }
-
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -732,6 +721,13 @@ class Game {
     // Get countries
     const source = this.countries[sourceKey];
     const target = this.countries[targetKey];
+
+    // TODO. check if neighbors
+    if (false) {
+      throw new Error(
+        `Country ${sourceKey} is not a neighbour of ${targetKey}`,
+      );
+    }
 
     // Validations
     if (source.state.player.color !== playerColor) {
@@ -779,7 +775,7 @@ class Game {
   }
 
   // Get one country card from deck
-  public getCountryCard(playerId: string): any {
+  public getCountryCard(playerId: string): {} {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -809,11 +805,12 @@ class Game {
       countryCards: this.countryCards,
       players: this.players,
       round: this.round,
+      newCard,
     };
   }
 
   // Exchange one country card
-  public exchangeCard(playerId: string, countryCard: string): any {
+  public exchangeCard(playerId: string, countryCard: string): {} {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -952,7 +949,7 @@ class Game {
     return new Date().getTime();
   }
 
-  private static getCountriesByPlayer(countries: {}, playerColor: string): any[] {
+  public static getCountriesByPlayer(countries: {}, playerColor: string): Country[] {
     const response = [];
 
     Object.keys(countries).forEach((countryKey) => {
@@ -965,7 +962,7 @@ class Game {
     return response;
   }
 
-  private static calculateTroopsToAdd(players: Player[], countries: {}): { } {
+  public static calculateTroopsToAdd(players: Player[], countries: {}): { } {
     const troopsPerPlayer = { };
     const countriesPerPlayer = { };
     const initialCount = { free: 0, total: 0 };
@@ -985,7 +982,8 @@ class Game {
 
     // Count countries per continent for each player
     _.forIn(countries, (value, key) => {
-      const continent = CountryService.getContinent(key);
+      const country = countries[key];
+      const continent = country.getContinent();
       countriesPerPlayer[value.state.player.color].free += 1;
       countriesPerPlayer[value.state.player.color][continent] += 1;
     });

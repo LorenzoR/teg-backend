@@ -1,10 +1,9 @@
 import _ from 'lodash';
 
-import CountryService from './CountryService';
-
 import { Mission } from '../models/Mission';
 import { PlayerTypes } from '../models/Player';
 import { ContinentTypes } from '../models/Continent';
+import Country from '../models/Country';
 
 // List of missions
 const Missions = {
@@ -123,7 +122,7 @@ class MissionService {
     return Missions;
   }
 
-  public static getRandomMissions(missionCount: number): any[] {
+  public static getRandomMissions(missionCount: number): Mission[] {
     const shuffledMissionKeys = _.shuffle(Object.keys(Missions));
     const missions = [];
     let count = missionCount;
@@ -136,9 +135,13 @@ class MissionService {
     return missions;
   }
 
-  public static missionCompleted(mission: Mission, countries: any): boolean {
+  public static missionCompleted(mission: Mission, countries: Country[]): boolean {
+    if (!mission || !countries || countries.length === 0) {
+      return false;
+    }
+
     // If conqueres countries === 30 then mission completed
-    if (countries && countries.length >= CONQUERED_COUNTRIES_TO_WIN) {
+    if (countries.length >= CONQUERED_COUNTRIES_TO_WIN) {
       return true;
     }
 
@@ -164,30 +167,30 @@ class MissionService {
       // commonNeighbours.forEach((neighbours) => {
       // eslint-disable-next-line no-restricted-syntax
       for (const neighbours of commonNeighbours) {
-        if (CountryService.getContinent(neighbours[0]) !== 'SOUTH_AMERICA'
-          && CountryService.getContinent(neighbours[0]) !== 'EUROPE'
-          && CountryService.getContinent(neighbours[1]) !== 'EUROPE'
-          && CountryService.getContinent(neighbours[2]) !== 'EUROPE') {
+        if (Country.getContinentByCountryKey(neighbours[0]) !== 'SOUTH_AMERICA'
+          && Country.getContinentByCountryKey(neighbours[0]) !== 'EUROPE'
+          && Country.getContinentByCountryKey(neighbours[1]) !== 'EUROPE'
+          && Country.getContinentByCountryKey(neighbours[2]) !== 'EUROPE') {
           // Check we have some group that is not south america or europe
           hasNeighbours = true;
           // Clear array
           penaltyArray.length = 0;
           break;
-        } else if (CountryService.getContinent(neighbours[0]) === 'EUROPE'
-          || CountryService.getContinent(neighbours[1]) === 'EUROPE'
-          || CountryService.getContinent(neighbours[2]) === 'EUROPE') {
+        } else if (Country.getContinentByCountryKey(neighbours[0]) === 'EUROPE'
+          || Country.getContinentByCountryKey(neighbours[1]) === 'EUROPE'
+          || Country.getContinentByCountryKey(neighbours[2]) === 'EUROPE') {
           // If we only have europe we need to substract those countries from total
           let penalty = 0;
 
-          if (CountryService.getContinent(neighbours[0]) === 'EUROPE') {
+          if (Country.getContinentByCountryKey(neighbours[0]) === 'EUROPE') {
             penalty += 1;
           }
 
-          if (CountryService.getContinent(neighbours[1]) === 'EUROPE') {
+          if (Country.getContinentByCountryKey(neighbours[1]) === 'EUROPE') {
             penalty += 1;
           }
 
-          if (CountryService.getContinent(neighbours[2]) === 'EUROPE') {
+          if (Country.getContinentByCountryKey(neighbours[2]) === 'EUROPE') {
             penalty += 1;
           }
 
@@ -208,7 +211,7 @@ class MissionService {
 
     console.log('countriesPerContinent', countriesPerContinent);
 
-    if (mission.continents) {
+    if (mission.continents && mission.continents.length > 0) {
       allCountriesConquered = mission.continents.every((continent) => {
         let continentCount = continent.countries;
 
@@ -226,7 +229,7 @@ class MissionService {
     return hasNeighbours && allCountriesConquered;
   }
 
-  public static commonNeighbours(countries: { countryKey: string } [], count: number): any[] {
+  public static commonNeighbours(countries: Country[], count: number): string[] {
     // Should have at least 'count' countries
     if (countries.length < count) {
       return [];
@@ -236,23 +239,19 @@ class MissionService {
 
     // List of countries
     for (let i = 0; i < countries.length; i += 1) {
-      const firstLevelNeighbours = CountryService.getNeighbours(
-        countries[i].countryKey,
-      );
+      const firstLevelNeighbours = countries[i].getNeighbours();
 
       // First level neighbours
       for (let j = 0; j < firstLevelNeighbours.length; j += 1) {
         if (_.find(countries, (obj) => obj.countryKey === firstLevelNeighbours[j])) {
         // if (firstLevelNeighbours[j] === countries[1].countryKey) {
-          const secondLevelNeighbours = CountryService.getNeighbours(
-            firstLevelNeighbours[j],
-          );
+          const secondLevelNeighbours = Country.getNeighboursByCountryKey(firstLevelNeighbours[j]);
 
           // Second level neighbours
           for (let k = 0; k < secondLevelNeighbours.length; k += 1) {
             if (countries[i].countryKey !== secondLevelNeighbours[k]
                   && _.find(countries, (obj) => obj.countryKey === secondLevelNeighbours[k])) {
-              const thirdLevelNeighbours = CountryService.getNeighbours(
+              const thirdLevelNeighbours = Country.getNeighboursByCountryKey(
                 secondLevelNeighbours[k],
               );
 
@@ -274,17 +273,17 @@ class MissionService {
     return _.uniqWith(response, _.isEqual);
   }
 
-  public static getConqueredCountriesByContinent(countries): {} {
-    const countriesPerContinent = {};
+  public static getConqueredCountriesByContinent(countries: Country[]): { [key: string]: number } {
+    const countriesPerContinent: { [key: string]: number } = {};
     const continentKeys = Object.keys(ContinentTypes);
 
     // Initialize counters
-    continentKeys.forEach((key) => {
+    continentKeys.forEach((key: string) => {
       countriesPerContinent[key] = 0;
     });
 
     countries.forEach((country) => {
-      countriesPerContinent[CountryService.getContinent(country.countryKey)] += 1;
+      countriesPerContinent[country.getContinent()] += 1;
     });
 
     return countriesPerContinent;

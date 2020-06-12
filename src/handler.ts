@@ -234,7 +234,6 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
     }
 
     // Remove from guests
-    // await gameService.removeGuest(gameId, playerId);
     game.removeGuest(playerId);
     console.log(`Guest ${playerId} removed!`);
 
@@ -340,10 +339,8 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
     game.removeGuest(newPlayer.id);
 
     // Send message with players
-    // game = await gameService.getGame(gameId);
-
     response = { action: 'joinGame', body: game };
-    // await send(endpoint, event.requestContext.c, JSON.stringify(response));
+
     setEndpointFromEvent(event);
     await sendMessageToAllPlayers(gameId, JSON.stringify(response));
     console.log('Message sent to all players!');
