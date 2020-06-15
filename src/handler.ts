@@ -3,13 +3,14 @@ import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import 'source-map-support/register';
 import _ from 'lodash';
 
-import GameService from './services/GameService';
-import DynamoDBOffline from './services/DynamoDBOffline';
-// import DealService from './services/DealService';
-import DiceService from './services/DiceService';
+// import GameService from './services/GameService';
+// import DynamoDBOffline from './services/DynamoDBOffline';
 import APIGatewayWebsocketsService from './services/APIGatewayWebsocketsService';
 
+import DynamoDBGameRepository from './services/DynamoDBGameRepository';
+
 // import { PlayerTypes } from './models/Player';
+import Game from './models/Game';
 import { RoundType } from './models/Round';
 
 const ActionTypes = {
@@ -17,14 +18,16 @@ const ActionTypes = {
   ROUND_FINISHED: 'roundFinished',
 };
 
-const diceService = new DiceService();
-
-const gameService = new GameService(new DynamoDBOffline(process.env.STAGE || 'local'), diceService);
+// const gameService = new GameService(new DynamoDBOffline(process.env.STAGE || 'local'));
+// const gameService = new GameService(new DynamoDBOffline('local'));
 
 let endpoint = 'http://localhost:3001';
 // let endpoint = '0su6p4d8cf.execute-api.ap-southeast-2.amazonaws.com/dev';
 
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(endpoint);
+
+// const gameRepository = new GameRepository(process.env.STAGE || 'local');
+const gameRepository = new DynamoDBGameRepository('local');
 
 const getGameIdFromEvent = (event: APIGatewayProxyEvent): string => event.queryStringParameters.game_id;
 
@@ -61,7 +64,8 @@ const broadcastBAK = async (data: {}, connectionIds: string[]): Promise<boolean>
 */
 
 const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolean> => {
-  const game = await gameService.getGame(gameId);
+  // const game = await gameService.getGame(gameId);
+  const game = await gameRepository.getByID(gameId);
 
   if (!game) {
     throw new Error(`No game with ID ${gameId}`);
@@ -95,7 +99,8 @@ const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolea
 };
 
 const sendGameInfoToAllPlayers = async (gameId: string): Promise<boolean> => {
-  const game = await gameService.getGame(gameId);
+  // const game = await gameService.getGame(gameId);
+  const game = await gameRepository.getByID(gameId);
   // const connectionIds = [];
 
   if (!game || !game.players) {
@@ -125,7 +130,8 @@ const sendGameInfoToAllPlayers = async (gameId: string): Promise<boolean> => {
 };
 
 const sendConnectionIdToEachPlayer = async (gameId: string): Promise<boolean> => {
-  const game = await gameService.getGame(gameId);
+  // const game = await gameService.getGame(gameId);
+  const game = await gameRepository.getByID(gameId);
 
   if (!game || !game.players) {
     return null;
@@ -157,33 +163,52 @@ const setEndpointFromEvent = (event) => {
 export const connectHandler: APIGatewayProxyHandler = async (event, _context) => {
   console.log('Connect Handler');
 
+  let newGame = false;
+
   // Add to guests so we have the connection ID
   const gameId = getGameIdFromEvent(event);
   console.log(`Trying to get game ID ${gameId}`);
 
+  try {
   // Get players from game
-  let game = await gameService.getGame(gameId);
+    let game = await gameRepository.getByID(gameId);
 
-  // Create game if there isn't one
-  if (!game) {
-    console.log(`Game not found, creating game ID ${gameId}`);
-    game = await gameService.newGame(gameId);
-    console.log(`Created game ID ${gameId}`);
-  } else {
-    console.log(`Got game ID ${gameId}`);
+    // Create game if there isn't one
+    if (!game) {
+      console.log(`Game not found, creating game ID ${gameId}`);
+      // game = await gameService.newGame(gameId);
+      game = (new Game()).initGame();
+      game.UUID = gameId;
+      newGame = true;
+      console.log(`Created game ID ${gameId}`);
+    } else {
+      console.log(`Got game ID ${gameId}`);
+    }
+
+    // Add guest
+    game.addGuest(event.requestContext.connectionId);
+    console.log(`Added guest ${event.requestContext.connectionId} to game ID ${gameId}`);
+
+    // Update game
+    if (newGame) {
+      await gameRepository.insert(game);
+    } else {
+      await gameRepository.update(game);
+    }
+    // await gameService.updateGame(game);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('connected'),
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(error),
+    };
   }
-
-  // Add guest
-  game.addGuest(event.requestContext.connectionId);
-  console.log(`Added guest ${event.requestContext.connectionId} to game ID ${gameId}`);
-
-  // Update game
-  await gameService.updateGame(game);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('connected'),
-  };
 };
 
 export const disconnectHandler: APIGatewayProxyHandler = async (event, _context) => {
@@ -191,85 +216,99 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
   const gameId = '1234'; // getGameIdFromEvent(event);
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
+  try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
 
-  let payload;
-  let isAdmin = false;
+    let payload;
+    let isAdmin = false;
 
-  // If game has started, send message
-  if (game && game.gameStatus === 'started') {
+    // If game has started, send message
+    if (game && game.gameStatus === 'started') {
     // const player = _.find(game.guests, (obj) => obj.id === playerId);
 
-    // Remove from players
-    const removedPlayer = game.removePlayer(playerId);
-    // const removedPlayer = await gameService.removePlayer(gameId, playerId);
-    console.log('Players Removed!', removedPlayer);
+      // Remove from players
+      const removedPlayer = game.removePlayer(playerId);
+      // const removedPlayer = await gameService.removePlayer(gameId, playerId);
+      console.log('Players Removed!', removedPlayer);
 
-    // Update game
-    await gameService.updateGame(game);
-    console.log('Game updated');
-
-    const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer.name };
-    payload = { action: 'playerDisconnected', body: payloadBody };
-
-    // setEndpointFromEvent(event);
-    // await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
-  } else if (game && game.gameStatus === 'waitingPlayers') {
-    // Look in guests
-    let player = _.find(game.guests, (obj) => obj.id === playerId);
-
-    // If not found, look in players
-    if (!player) {
-      player = _.find(game.players, (obj) => obj.id === playerId);
-    }
-
-    if (!player) {
-      console.error(`Player ${playerId} not found`);
-
-      return {
-        statusCode: 400,
-        body: JSON.stringify(`Player ${playerId} not found`),
-      };
-    }
-
-    // Remove from guests
-    game.removeGuest(playerId);
-    console.log(`Guest ${playerId} removed!`);
-
-    isAdmin = player.isAdmin;
-
-    // Update game only if player was not admin
-    // If player is admin game will be removed so no need to update
-    if (!isAdmin) {
-      await gameService.updateGame(game);
+      // Update game
+      // await gameService.updateGame(game);
+      await gameRepository.update(game);
       console.log('Game updated');
-    }
 
-
-    const payloadBody = { isAdmin };
-    payload = { action: 'guestDisconnected', body: payloadBody };
+      const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer.name };
+      payload = { action: 'playerDisconnected', body: payloadBody };
 
     // setEndpointFromEvent(event);
     // await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    } else if (game && game.gameStatus === 'waitingPlayers') {
+    // Look in guests
+      let player = _.find(game.guests, (obj) => obj.id === playerId);
+
+      // If not found, look in players
+      if (!player) {
+        player = _.find(game.players, (obj) => obj.id === playerId);
+      }
+
+      if (!player) {
+        console.error(`Player ${playerId} not found`);
+
+        return {
+          statusCode: 400,
+          body: JSON.stringify(`Player ${playerId} not found`),
+        };
+      }
+
+      // Remove from guests
+      game.removeGuest(playerId);
+      console.log(`Guest ${playerId} removed!`);
+
+      isAdmin = player.isAdmin;
+
+      // Update game only if player was not admin
+      // If player is admin game will be removed so no need to update
+      if (!isAdmin) {
+        // await gameService.updateGame(game);
+        await gameRepository.update(game);
+        console.log('Game updated');
+      }
+
+
+      const payloadBody = { isAdmin };
+      payload = { action: 'guestDisconnected', body: payloadBody };
+
+    // setEndpointFromEvent(event);
+    // await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    }
+
+    setEndpointFromEvent(event);
+    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    console.log('Message sent', payload);
+
+    // If admin left, delete game
+    if (isAdmin) {
+      await gameRepository.delete(gameId);
+      // await gameService.deleteGame(gameId);
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('disconnected'),
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(error),
+    };
   }
-
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
-  console.log('Message sent', payload);
-
-  // If admin left, delete game
-  if (isAdmin) {
-    await gameService.deleteGame(gameId);
-  }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('disconnected'),
-  };
 };
 
 export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) => {
+  console.log('Join Game Handler');
   // Add player to game
   const eventBody = JSON.parse(event.body);
 
@@ -278,20 +317,189 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
 
   let response;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
+  try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ID ${game.UUID}`);
 
-  if (game.hasStarted()) {
+    if (game.hasStarted()) {
     // Game already started so try to reconnect
     // Try to get game
-    if (cachedConnectionId) {
-      console.log('Cached!');
-      // Check if player color and Id match
-      const player = game.getPlayerByColor(color);
+      if (cachedConnectionId) {
+        console.log('Cached!');
+        // Check if player color and Id match
+        const player = game.getPlayerByColor(color);
 
-      // Player color and ID ok
-      if (player && player.id === cachedConnectionId) {
+        // Player color and ID ok
+        if (player && player.id === cachedConnectionId) {
+          response = game.reConnectPlayer(color, connectionId);
+        }
+      } else {
         response = game.reConnectPlayer(color, connectionId);
+      }
+
+      // Remove guest with those IDs
+      game.removeGuest(connectionId);
+
+      if (cachedConnectionId) {
+        game.removeGuest(cachedConnectionId);
+      }
+
+      if (response) {
+        console.log('response', response);
+
+        // Send game info to everyone
+        setEndpointFromEvent(event);
+        await sendGameInfoToAllPlayers(gameId);
+        console.log('Message sent to all players!');
+
+        // Send re-connected player
+        const payload = {
+          action: 'reJoinGame',
+          body: {
+            reConnectedPlayerName: response.player.name,
+            players: response.players,
+          },
+        };
+
+        setEndpointFromEvent(event);
+        await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+      }
+    } else {
+    // Game not started yet so add player
+      const newPlayer = {
+        id: event.requestContext.connectionId,
+        name: eventBody.data.username,
+        color: eventBody.data.color,
+      };
+
+      game.addPlayer(newPlayer);
+      console.log(`Player ${newPlayer.color} added!`);
+
+      // Remove from guests
+      game.removeGuest(newPlayer.id);
+
+      // Send message with players
+      response = { action: 'joinGame', body: game };
+
+      setEndpointFromEvent(event);
+      await sendMessageToAllPlayers(gameId, JSON.stringify(response));
+      console.log('Message sent to all players!');
+    }
+
+    // Update game
+    // TODO. This should be done before sending message to players
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
+    console.log('Updated game');
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('joinGameHandler OK!'),
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(error),
+    };
+  }
+};
+
+export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context) => {
+  // Add player to game
+  const eventBody = JSON.parse(event.body);
+
+  const { gameId } = eventBody.data;
+  const { connectionId } = event.requestContext;
+
+  try {
+  // Get game
+  // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+
+    if (!game) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`No game with ID ${gameId}`),
+      };
+    }
+
+    // Get current player
+    const { players, guests } = game;
+
+    let currentPlayer = _.find(players, (obj) => obj.id === connectionId);
+
+    // Player not found, try in guests
+    if (!currentPlayer) {
+      currentPlayer = _.find(guests, (obj) => obj.id === connectionId);
+    }
+
+    // Error. Player not found
+    if (!currentPlayer) {
+      const errorMsg = `Player ID ${connectionId} not found in game ${gameId}`;
+      console.error(errorMsg);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(errorMsg),
+      };
+    }
+
+    // Send message to that connectionID only
+    const response = { action: 'playersInfo', body: { players: game.players, currentPlayer } };
+    setEndpointFromEvent(event);
+    await apiGatewayWebsocketsService.send(connectionId, JSON.stringify(response));
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('getGame OK!'),
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(error),
+    };
+  }
+};
+
+export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) => {
+  // Re-connect player to game
+  const eventBody = JSON.parse(event.body);
+
+  const { gameId, color, cachedConnectionId } = eventBody.data;
+  const { connectionId } = event.requestContext;
+
+  try {
+    const game = await gameRepository.getByID(gameId);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
+    let response;
+
+    // Try to get game
+    if (cachedConnectionId) {
+      console.log('cached!');
+
+      if (game.hasStarted()) {
+      // Check if player color and Id match
+        const player = game.getPlayerByColor(color);
+
+        // Player color and ID ok
+        if (player && player.id === cachedConnectionId) {
+          response = game.reConnectPlayer(color, connectionId);
+        }
       }
     } else {
       response = game.reConnectPlayer(color, connectionId);
@@ -307,10 +515,14 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
     if (response) {
       console.log('response', response);
 
+      // Update game
+      await gameRepository.update(game);
+      // await gameService.updateGame(game);
+
       // Send game info to everyone
       setEndpointFromEvent(event);
       await sendGameInfoToAllPlayers(gameId);
-      console.log('Message sent to all players!');
+      console.log('message sent to all players!');
 
       // Send re-connected player
       const payload = {
@@ -324,152 +536,19 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
       setEndpointFromEvent(event);
       await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
     }
-  } else {
-    // Game not started yet so add player
-    const newPlayer = {
-      id: event.requestContext.connectionId,
-      name: eventBody.data.username,
-      color: eventBody.data.color,
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('reConnectHandler OK!'),
     };
-
-    game.addPlayer(newPlayer);
-    console.log(`Player ${newPlayer.color} added!`);
-
-    // Remove from guests
-    game.removeGuest(newPlayer.id);
-
-    // Send message with players
-    response = { action: 'joinGame', body: game };
-
-    setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(response));
-    console.log('Message sent to all players!');
-  }
-
-  // Update game
-  // TODO. This should be done before sending message to players
-  await gameService.updateGame(game);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('joinGameHandler OK!'),
-  };
-};
-
-export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context) => {
-  // Add player to game
-  const eventBody = JSON.parse(event.body);
-
-  const { gameId } = eventBody.data;
-  const { connectionId } = event.requestContext;
-
-  // Get game
-  const game = await gameService.getGame(gameId);
-
-  // Get current player
-  const { players, guests } = game;
-
-  let currentPlayer = _.find(players, (obj) => obj.id === connectionId);
-
-  // Player not found, try in guests
-  if (!currentPlayer) {
-    currentPlayer = _.find(guests, (obj) => obj.id === connectionId);
-  }
-
-  // Error. Player not found
-  if (!currentPlayer) {
-    const errorMsg = `Player ID ${connectionId} not found in game ${gameId}`;
-    console.error(errorMsg);
+  } catch (error) {
+    console.error(error);
 
     return {
       statusCode: 400,
-      body: JSON.stringify(errorMsg),
+      body: JSON.stringify(error),
     };
   }
-
-  // Send message to that connectionID only
-  const response = { action: 'playersInfo', body: { players: game.players, currentPlayer } };
-  setEndpointFromEvent(event);
-  await apiGatewayWebsocketsService.send(connectionId, JSON.stringify(response));
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('getGame OK!'),
-  };
-};
-
-export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) => {
-  // Re-connect player to game
-  const eventBody = JSON.parse(event.body);
-
-  const { gameId, color, cachedConnectionId } = eventBody.data;
-  const { connectionId } = event.requestContext;
-
-  const game = await gameService.getGame(gameId);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
-  let response;
-
-  // Try to get game
-  if (cachedConnectionId) {
-    console.log('cached!');
-
-    if (game.hasStarted()) {
-      // Check if player color and Id match
-      const player = game.getPlayerByColor(color);
-
-      // Player color and ID ok
-      if (player && player.id === cachedConnectionId) {
-        response = game.reConnectPlayer(color, connectionId);
-      }
-    }
-  } else {
-    response = game.reConnectPlayer(color, connectionId);
-  }
-
-  // Remove guest with those IDs
-  game.removeGuest(connectionId);
-
-  if (cachedConnectionId) {
-    game.removeGuest(cachedConnectionId);
-  }
-
-  if (response) {
-    console.log('response', response);
-
-    // Update game
-    await gameService.updateGame(game);
-
-    // Send game info to everyone
-    setEndpointFromEvent(event);
-    await sendGameInfoToAllPlayers(gameId);
-    console.log('message sent to all players!');
-
-    // Send re-connected player
-    const payload = {
-      action: 'reJoinGame',
-      body: {
-        reConnectedPlayerName: response.player.name,
-        players: response.players,
-      },
-    };
-
-    setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
-  }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('reConnectHandler OK!'),
-  };
 };
 
 export const startGameHandler: APIGatewayProxyHandler = async (event, _context) => {
@@ -478,35 +557,48 @@ export const startGameHandler: APIGatewayProxyHandler = async (event, _context) 
   const eventBody = JSON.parse(event.body);
   const { gameId } = eventBody.data;
 
-  const game = await gameService.getGame(gameId);
+  try {
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
 
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
+    game.startGame();
+    console.log('Game started!');
+
+    // Update game
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
+    console.log('Game updated');
+
+    const response = { action: 'gameStarted', body: game };
+
+    setEndpointFromEvent(event);
+    await sendMessageToAllPlayers(gameId, JSON.stringify(response));
+    console.log('Message sent to all players!');
+
+    // Send connection ID to each player
+    await sendConnectionIdToEachPlayer(gameId);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify('startGameHandler OK!'),
+    };
+  } catch (error) {
+    console.error(error);
 
     return {
       statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
+      body: JSON.stringify(error),
     };
   }
-
-  game.startGame();
-  console.log('Game started!');
-
-  await gameService.updateGame(game);
-
-  const response = { action: 'gameStarted', body: game };
-
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(response));
-  console.log('Message sent to all players!');
-
-  // Send connection ID to each player
-  await sendConnectionIdToEachPlayer(gameId);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('startGameHandler OK!'),
-  };
 };
 
 export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context) => {
@@ -517,48 +609,58 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
 
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
+  try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
 
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
+    console.log(`Got game ${gameId}`);
+
+    // Finish round
+    try {
+      game.finishTurn(playerId);
+    } catch (error) {
+      console.error('finishRoundHandler error', error);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(error),
+      };
+    }
+
+    console.log(`Player ${playerColor} finished his turn`);
+
+    // Get game
+    // const response = await gameService.updateGame(game);
+    const response = await gameRepository.update(game);
+    console.log('Game updated');
+
+    const message = { action: ActionTypes.ROUND_FINISHED, body: response };
+
+    setEndpointFromEvent(event);
+    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    console.log('Message sent to all players!');
 
     return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
+      statusCode: 200,
+      body: JSON.stringify('finish turn OK!'),
     };
-  }
-
-  console.log(`Got game ${gameId}`);
-
-  // Finish round
-  try {
-    game.finishTurn(playerId);
   } catch (error) {
-    console.error('finishRoundHandler error', error);
-
+    console.error(error);
     return {
       statusCode: 400,
       body: JSON.stringify(error),
     };
   }
-
-  console.log(`Player ${playerColor} finished his turn`);
-
-  // Get game
-  const response = await gameService.updateGame(game);
-  console.log('Game updated');
-
-  const message = { action: ActionTypes.ROUND_FINISHED, body: response };
-
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(message));
-  console.log('Message sent to all players!');
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify('finish turn OK!'),
-  };
 };
 
 export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) => {
@@ -572,29 +674,40 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
   const playerId = event.requestContext.connectionId;
 
   // Get game
-  const game = await gameService.getGame(gameId);
-  console.log(`Got game ${gameId}`);
+  // const game = await gameService.getGame(gameId);
+  try {
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ${game.UUID}`);
 
-  game.addTroops(playerId, country, count);
+    game.addTroops(playerId, country, count);
 
-  console.log(`Player ${playerColor} added ${count} troops to ${country}`);
+    console.log(`Player ${playerColor} added ${count} troops to ${country}`);
 
-  // Update game
-  const response = await gameService.updateGame(game);
-  console.log('game updated!');
-  // const response = await gameService.updateCountry(gameId, game.countries[country]);
-  // console.log('Country updated!');
+    // Update game
+    // const response = await gameService.updateGame(game);
+    const response = await gameRepository.update(game);
+    console.log('game updated!');
+    // const response = await gameService.updateCountry(gameId, game.countries[country]);
+    // console.log('Country updated!');
 
-  const message = { action: ActionTypes.TROOPS_ADDED, body: game.getGame() };
+    const message = { action: ActionTypes.TROOPS_ADDED, body: game.getGame() };
 
-  setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(message));
-  console.log('Message sent to all players!');
+    setEndpointFromEvent(event);
+    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    console.log('Message sent to all players!');
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(error),
+    };
+  }
 };
 
 export const attackHandler: APIGatewayProxyHandler = async (event, _context) => {
@@ -608,26 +721,28 @@ export const attackHandler: APIGatewayProxyHandler = async (event, _context) => 
   // Check if it's that player's round
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
-  console.log(`Got game ID ${gameId}`);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
-  // Attack
   try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ID ${gameId}`);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
+    // Attack
     const attackResponse = game.attack(playerId, attacker, defender);
     console.log(`Player ${playerColor} attacked ${defender} from ${attacker}`);
 
     // Update game
-    const response = await gameService.updateGame(game);
+    // const response = await gameService.updateGame(game);
+    const response = await gameRepository.update(game);
     console.log('Game updated');
 
     const message = { action: 'countryAttacked', body: attackResponse };
@@ -660,24 +775,26 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event, _context)
 
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
-  console.log(`Got game ID ${gameId}`);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
   try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ID ${gameId}`);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
     const response = game.moveTroops(playerId, source, target, count, conquest);
     console.log(`Player ${playerColor} moved ${count} troops from ${source} to ${target}`);
 
-    await gameService.updateGame(game);
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
     console.log('Game updated');
 
     const message = { action: 'troopsMoved', body: response };
@@ -710,25 +827,27 @@ export const getCardHandler: APIGatewayProxyHandler = async (event, _context) =>
 
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
-  console.log(`Got game ID ${gameId}`);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
   try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ID ${gameId}`);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
     // Get card
     const response = game.getCountryCard(playerId);
 
     // Update game
-    await gameService.updateGame(game);
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
     console.log('Game updated');
 
     const payload = { action: 'cardReceived', body: { players: response.players } };
@@ -771,25 +890,27 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _contex
 
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
-  console.log(`Got game ID ${gameId}`);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
   try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+    console.log(`Got game ID ${gameId}`);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
     const response = game.exchangeCard(playerId, card);
     console.log('Changed Card');
 
     // Update game
-    await gameService.updateGame(game);
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
     console.log('Game updated');
 
     const payload = { action: 'cardExchanged', body: { players: response.players, countries: response.countries } };
@@ -821,26 +942,28 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
 
   const playerId = event.requestContext.connectionId;
 
-  // Get game
-  const game = await gameService.getGame(gameId);
-
-  if (!game) {
-    console.error(`Game ID ${gameId} not found`);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify(`Game ID ${gameId} not found`),
-    };
-  }
-
-  console.log(`Got game ID ${gameId}`);
-
   try {
+    // Get game
+    // const game = await gameService.getGame(gameId);
+    const game = await gameRepository.getByID(gameId);
+
+    if (!game) {
+      console.error(`Game ID ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ID ${gameId} not found`),
+      };
+    }
+
+    console.log(`Got game ID ${gameId}`);
+
     const response = game.exchangeCards(playerId, cards);
     console.log('Exchanged cards');
 
     // Update game
-    await gameService.updateGame(game);
+    // await gameService.updateGame(game);
+    await gameRepository.update(game);
     console.log('Game updated');
 
     const payload = { action: 'cardsExchanged', body: { players: response.players } };
@@ -874,8 +997,12 @@ export const chatMessageHandler: APIGatewayProxyHandler = async (event, _context
 
   const playerId = event.requestContext.connectionId;
 
+  // Get game
+  const game = await gameRepository.getByID(gameId);
+
   // Get player
-  const player = await gameService.getPlayerById(gameId, playerId);
+  // const player = await gameService.getPlayerById(gameId, playerId);
+  const player = game.getPlayerById(playerId);
 
   // Error. Player not found
   if (!player) {

@@ -9,7 +9,6 @@ import Country from '../models/Country';
 import { RoundType } from '../models/Round';
 
 import DealService from './DealService';
-import DiceService from './DiceService';
 import CountryService from './CountryService';
 import MissionService from './MissionService';
 
@@ -48,17 +47,15 @@ const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65
 class GameService {
   private repository!: Repository;
 
-  private diceService!: DiceService;
+  private gameRepository!: Repository;
 
-  private MAX_DICES_PER_THROW = 3;
-
-  private GAMES_TABLE_NAME = process.env.GAMES_TABLE || 'teg-games-dev';
+  // private GAMES_TABLE_NAME = process.env.GAMES_TABLE || 'local-teg-games';
+  private GAMES_TABLE_NAME = 'local-teg-games';
 
   // private dealService!: DealService;
 
-  constructor(repository: any, diceService: DiceService) {
+  constructor(repository: any) {
     this.repository = repository;
-    this.diceService = diceService;
     console.log('GAMES_TABLE_NAME', this.GAMES_TABLE_NAME);
     // this.dealService = dealService;
     /*
@@ -94,7 +91,7 @@ class GameService {
       const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
 
       if (response) {
-        return new Game(params.Item);
+        return Object.assign(new Game(), params.Item);
       }
 
       // TODO. Handle error
@@ -117,7 +114,7 @@ class GameService {
     try {
       const response = await this.repository.get(this.GAMES_TABLE_NAME, params);
       if (response && response.Item) {
-        return new Game(response.Item);
+        return Object.assign(new Game(), response.Item);
       }
       // TODO. Handle error
       return null;

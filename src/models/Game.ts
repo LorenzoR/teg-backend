@@ -1,10 +1,19 @@
 /* eslint-disable no-param-reassign */
 import _ from 'lodash';
+import {
+  attribute,
+  hashKey,
+  rangeKey,
+  table,
+} from '@aws/dynamodb-data-mapper-annotations';
 
-import { Player } from './Player';
+import { embed } from '@aws/dynamodb-data-mapper';
+
+import Player from './Player';
 import Country from './Country';
-import CountryCard, { CountryCardType } from './CountryCard';
-import { RoundType } from './Round';
+import CountryCard from './CountryCard';
+import Round, { RoundType } from './Round';
+import EventsLog from './EventsLog';
 // import { CountryType } from './Country';
 import { ContinentTypes } from './Continent';
 
@@ -13,12 +22,6 @@ import CountryService from '../services/CountryService';
 import MissionService from '../services/MissionService';
 import DiceService from '../services/DiceService';
 import DealService from '../services/DealService';
-
-interface EventsLogType {
-  type: string;
-  text: string;
-  time: number;
-}
 
 interface RoundType {
   count: number;
@@ -31,10 +34,10 @@ export interface GameType {
   gameStatus: string;
   guests?: Player [];
   players?: Player [];
-  countries?: { any };
+  countries?: Country [];
   round: RoundType;
-  countryCards: CountryCardType[];
-  eventsLog?: EventsLogType[];
+  countryCards: CountryCard[];
+  eventsLog?: EventsLog[];
   winner?: string;
 }
 
@@ -61,28 +64,43 @@ const SECOND_ROUND_TROOPS = 3;
 // TODO. Don't hard-code values
 const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
 
+// @table('local-teg-games')
+@table('teg-games')
 class Game {
-  public UUID: string;
+  @hashKey({
+    type: 'String',
+  })
+  public UUID?: string;
 
+  @attribute({ memberType: embed(Player) })
   public guests: Player [] = [];
 
+  // @attribute({ memberType: embed(Player) })
+  @attribute({ memberType: embed(Player) })
   public players?: Player [] = [];
 
-  public countries?: { any };
+  @attribute({ memberType: embed(Country) })
+  public countries?: Country [] = [];
 
-  public round: RoundType;
+  @attribute({ memberType: embed(Round) })
+  public round: Round;
 
-  public eventsLog?: EventsLogType[] = [];
+  @attribute({ memberType: embed(EventsLog) })
+  public eventsLog?: EventsLog[] = [];
 
-  public countryCards?: CountryCardType[];
+  @attribute({ memberType: embed(CountryCard) })
+  public countryCards?: CountryCard[];
 
+  @attribute()
   public gameStatus: string;
 
-  public winner: string | null;
+  @attribute()
+  public winner?: string;
 
   private diceService!: DiceService;
 
-  public constructor(game: GameType) {
+  public constructor() {
+    /*
     if (game) {
       this.UUID = game.UUID;
       this.guests = game.guests;
@@ -94,6 +112,7 @@ class Game {
       this.countryCards = game.countryCards;
       this.winner = null;
     }
+    */
 
     this.diceService = new DiceService();
   }
@@ -110,6 +129,24 @@ class Game {
       countryCards: this.countryCards,
       winner: this.winner,
     };
+  }
+
+  public initGame(): Game {
+    // Set first round
+    const round = {
+      count: 1,
+      type: RoundType.FIRST_ADD_TROOPS,
+      playerIndex: 0,
+    };
+
+    // Set status to STARTED
+    const gameStatus = GameStatusType.WAITING_PLAYERS;
+
+    // Return game;
+    this.round = round;
+    this.gameStatus = gameStatus;
+
+    return this;
   }
 
   // Start a game
@@ -172,10 +209,11 @@ class Game {
     }
 
     const guest = {
-      id: guestId, isAdmin: false, name: null, color: null,
+      // id: guestId, isAdmin: false, name: null, color: null,
+      id: guestId, isAdmin: false,
     };
 
-    if (!this.guests) {
+    if (!this.guests || this.guests.length === 0) {
       this.guests = [];
       guest.isAdmin = true;
     }
@@ -311,7 +349,7 @@ class Game {
     }
 
     // Get country
-    const country = this.countries[countryKey];
+    const country = _.find(this.countries, { countryKey });
 
     if (!this.countries || !country) {
       // TODO. Handle error
@@ -458,13 +496,11 @@ class Game {
     }
 
     // Add recently added troops to troops
-    if (true || round.type === RoundType.ADD_TROOPS) {
-      Object.keys(countries).forEach((countryKey) => {
-        const country = countries[countryKey];
-        country.state.troops += country.state.newTroops;
-        country.state.newTroops = 0;
-      });
-    }
+    // if (round.type === RoundType.ADD_TROOPS) {
+    countries.forEach((country) => {
+      country.state.troops += country.state.newTroops;
+      country.state.newTroops = 0;
+    });
 
     return this;
   }
@@ -498,8 +534,8 @@ class Game {
     }
 
     // Get countries
-    const attacker = this.countries[attackerKey];
-    const defender = this.countries[defenderKey];
+    const attacker = _.find(this.countries, { countryKey: attackerKey });
+    const defender = _.find(this.countries, { countryKey: defenderKey });
 
     if (!attacker) {
       throw new Error(`Country ${attackerKey} not found`);
@@ -719,8 +755,8 @@ class Game {
     }
 
     // Get countries
-    const source = this.countries[sourceKey];
-    const target = this.countries[targetKey];
+    const source = _.find(this.countries, { countryKey: sourceKey });
+    const target = _.find(this.countries, { countryKey: targetKey });
 
     // TODO. check if neighbors
     if (false) {
@@ -810,7 +846,7 @@ class Game {
   }
 
   // Exchange one country card
-  public exchangeCard(playerId: string, countryCard: string): {} {
+  public exchangeCard(playerId: string, countryCard: string): { countries: Country[]; players: Player[] } {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -936,12 +972,13 @@ class Game {
     return _.find(this.players, (obj) => obj.color === playerColor);
   }
 
-  private getPlayerById(playerId: string): Player {
+  public getPlayerById(playerId: string): Player {
     if (!this.players || this.players.length === 0) {
+      console.error('not enough players');
       return null;
     }
 
-    // Find by color
+    // Find by ID
     return _.find(this.players, (obj) => obj.id === playerId);
   }
 

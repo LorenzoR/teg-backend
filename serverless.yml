@@ -6,8 +6,8 @@ service:
 
 custom:
   stage: ${opt:stage, self:provider.stage}
-  GAMES_TABLE: teg-games-${self:custom.stage}
-  CONNECTION_IDS_TABLE: connection_ids-${self:custom.stage}
+  GAMES_TABLE: ${self:custom.stage}-teg-games
+  CONNECTION_IDS_TABLE: ${self:custom.stage}-connection-ids
   webpack:
     webpackConfig: ./webpack.config.js
     includeModules: true

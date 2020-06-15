@@ -1,3 +1,7 @@
+import {
+  attribute,
+} from '@aws/dynamodb-data-mapper-annotations';
+
 const CountriesRaw = {
   // North America
   CANADA: 'CANADA',
@@ -133,6 +137,15 @@ const CardsForExchange = {
 };
 
 class CountryCard {
+  @attribute()
+  public country: string;
+
+  @attribute()
+  public type: string;
+
+  @attribute()
+  public exchanged?: boolean;
+
   public static getAllCards(): CountryCardType [] {
     return COUNTRY_CARDS;
   }

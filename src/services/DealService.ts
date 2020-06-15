@@ -13,22 +13,24 @@ class DealService {
     const numberOfPlayers = players.length;
     const countryKeys = CountryService.getAllCountries();
     const randomCountryKeys = _.shuffle(Object.keys(countryKeys));
-    const countries = { };
+    const countries: Country[] = [];
     let counter = 0;
 
     randomCountryKeys.forEach((countryKey) => {
-      const country = new Country(
+      const countryAttributes = {
         countryKey,
-        countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
+        name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
         // continent: CountryService.getContinent(countryKey),
-        {
+        state: {
           player: players[counter % numberOfPlayers],
           troops: 1,
           newTroops: 0, // To keep track of troops added during ADD_TROOPS round
         },
-      );
+      };
 
-      countries[countryKey] = country;
+      const country = Object.assign(new Country(), countryAttributes);
+
+      countries.push(country);
 
       counter += 1;
     });

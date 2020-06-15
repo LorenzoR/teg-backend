@@ -1,6 +1,11 @@
+import {
+  attribute,
+} from '@aws/dynamodb-data-mapper-annotations';
+import { embed } from '@aws/dynamodb-data-mapper';
 import _ from 'lodash';
 
-import { Player } from './Player';
+import Player from './Player';
+import CountryState from './CountryState';
 import { ContinentTypes } from './Continent';
 
 const CountryType = {
@@ -309,24 +314,22 @@ const Countries = [
   { id: CountryType.ARABIA, name: 'Arabia', continent: ContinentTypes.ASIA },
 ];
 
-interface CountryState {
-  player: Player;
-  troops: number;
-  newTroops: number; // To keep track of troops added during ADD_TROOPS round
-}
-
 class Country {
+  @attribute()
   public countryKey: string;
 
+  @attribute()
   public name: string;
 
+  @attribute({ memberType: embed(CountryState) })
   public state: CountryState;
 
+  /*
   public constructor(countryKey: string, name: string, state: CountryState) {
     this.countryKey = countryKey;
     this.name = name;
     this.state = state;
-  }
+  } */
 
   public getContinent(): string | null {
     const country = _.find(Countries, (obj) => obj.id === this.countryKey);

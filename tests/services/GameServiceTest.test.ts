@@ -1,15 +1,10 @@
 import _ from 'lodash';
 
-// eslint-disable-next-line import/extensions
 import GameService from '../../src/services/GameService';
-// eslint-disable-next-line import/extensions
 import DynamoDBOffline from '../../src/services/DynamoDBOffline';
-// eslint-disable-next-line import/extensions
-import DiceService from '../../src/services/DiceService';
 
-const diceService = new DiceService();
 const dynamoDBOffline = new DynamoDBOffline('local');
-const gameService = new GameService(dynamoDBOffline, diceService);
+const gameService = new GameService(dynamoDBOffline);
 
 const gameId = '1234';
 

@@ -15,16 +15,16 @@ describe('mission service', () => {
     expect.hasAssertions();
 
     const countries = [
-      new Country('BRASIL', null, null),
-      new Country('URUGUAY', null, null),
-      new Country('ARGENTINA', null, null),
-      new Country('PERU', null, null),
-      new Country('GOBI', null, null),
-      new Country('CHINA', null, null),
-      new Country('MONGOLIA', null, null),
-      new Country('ISRAEL', null, null),
-      new Country('ARABIA', null, null),
-      new Country('TURKEY', null, null),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
+      Object.assign(new Country(), { countryKey: 'ARGENTINA' }),
+      Object.assign(new Country(), { countryKey: 'PERU' }),
+      Object.assign(new Country(), { countryKey: 'GOBI' }),
+      Object.assign(new Country(), { countryKey: 'CHINA' }),
+      Object.assign(new Country(), { countryKey: 'MONGOLIA' }),
+      Object.assign(new Country(), { countryKey: 'ISRAEL' }),
+      Object.assign(new Country(), { countryKey: 'ARABIA' }),
+      Object.assign(new Country(), { countryKey: 'TURKEY' }),
     ];
 
     const neighbourGroups = MissionService.commonNeighbours(countries, 3);
@@ -36,8 +36,8 @@ describe('mission service', () => {
     expect.hasAssertions();
 
     const countries = [
-      new Country('BRASIL', null, null),
-      new Country('URUGUAY', null, null),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
     ];
 
     const neighbourGroups = MissionService.commonNeighbours(countries, 3);
@@ -52,23 +52,23 @@ describe('mission service', () => {
     const mission = missions.AFRICA_NORTH_AMERICA_5_EUROPE_4;
 
     const countries = [
-      new Country('ZAIRE', null, null),
-      new Country('SAHARA', null, null),
-      new Country('ETHIOPIA', null, null),
-      new Country('SOUTH_AFRICA', null, null),
-      new Country('MADAGASCAR', null, null),
-      new Country('EGYPT', null, null),
-      new Country('CALIFORNIA', null, null),
-      new Country('OREGON', null, null),
-      new Country('ALASKA', null, null),
-      new Country('TERRANOVA', null, null),
-      new Country('LABRADOR', null, null),
-      new Country('YUKON', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('ITALY', null, null),
-      new Country('GERMANY', null, null),
-      new Country('POLAND', null, null),
+      Object.assign(new Country(), { countryKey: 'ZAIRE' }),
+      Object.assign(new Country(), { countryKey: 'SAHARA' }),
+      Object.assign(new Country(), { countryKey: 'ETHIOPIA' }),
+      Object.assign(new Country(), { countryKey: 'SOUTH_AFRICA' }),
+      Object.assign(new Country(), { countryKey: 'MADAGASCAR' }),
+      Object.assign(new Country(), { countryKey: 'EGYPT' }),
+      Object.assign(new Country(), { countryKey: 'CALIFORNIA' }),
+      Object.assign(new Country(), { countryKey: 'OREGON' }),
+      Object.assign(new Country(), { countryKey: 'TERRANOVA' }),
+      Object.assign(new Country(), { countryKey: 'ALASKA' }),
+      Object.assign(new Country(), { countryKey: 'LABRADOR' }),
+      Object.assign(new Country(), { countryKey: 'YUKON' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
+      Object.assign(new Country(), { countryKey: 'GERMANY' }),
+      Object.assign(new Country(), { countryKey: 'POLAND' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -83,23 +83,23 @@ describe('mission service', () => {
     const mission = missions.SOUTH_AMERICA_EUROPE_7_NEIGHBOURS_3;
 
     const countries = [
-      new Country('BRASIL', null, null),
-      new Country('ARGENTINA', null, null),
-      new Country('PERU', null, null),
-      new Country('CHILE', null, null),
-      new Country('URUGUAY', null, null),
-      new Country('COLOMBIA', null, null),
-      new Country('POLAND', null, null),
-      new Country('GERMANY', null, null),
-      new Country('ITALY', null, null),
-      new Country('RUSIA', null, null),
-      new Country('SWEDEN', null, null),
-      new Country('UK', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('TAIMIR', null, null),
-      new Country('TARTARIA', null, null),
-      new Country('SIBERIA', null, null),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'ARGENTINA' }),
+      Object.assign(new Country(), { countryKey: 'PERU' }),
+      Object.assign(new Country(), { countryKey: 'CHILE' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
+      Object.assign(new Country(), { countryKey: 'COLOMBIA' }),
+      Object.assign(new Country(), { countryKey: 'POLAND' }),
+      Object.assign(new Country(), { countryKey: 'GERMANY' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
+      Object.assign(new Country(), { countryKey: 'RUSIA' }),
+      Object.assign(new Country(), { countryKey: 'SWEDEN' }),
+      Object.assign(new Country(), { countryKey: 'UK' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
+      Object.assign(new Country(), { countryKey: 'TAIMIR' }),
+      Object.assign(new Country(), { countryKey: 'TARTARIA' }),
+      Object.assign(new Country(), { countryKey: 'SIBERIA' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -114,22 +114,22 @@ describe('mission service', () => {
     const mission = missions.SOUTH_AMERICA_EUROPE_7_NEIGHBOURS_3;
 
     const countries = [
-      new Country('BRASIL', null, null),
-      new Country('ARGENTINA', null, null),
-      new Country('PERU', null, null),
-      new Country('CHILE', null, null),
-      new Country('URUGUAY', null, null),
-      new Country('COLOMBIA', null, null),
-      new Country('POLAND', null, null),
-      new Country('GERMANY', null, null),
-      new Country('ITALY', null, null),
-      new Country('RUSIA', null, null),
-      new Country('SWEDEN', null, null),
-      new Country('UK', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('TURKEY', null, null),
-      new Country('ICELAND', null, null),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'ARGENTINA' }),
+      Object.assign(new Country(), { countryKey: 'PERU' }),
+      Object.assign(new Country(), { countryKey: 'CHILE' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
+      Object.assign(new Country(), { countryKey: 'COLOMBIA' }),
+      Object.assign(new Country(), { countryKey: 'POLAND' }),
+      Object.assign(new Country(), { countryKey: 'GERMANY' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
+      Object.assign(new Country(), { countryKey: 'RUSIA' }),
+      Object.assign(new Country(), { countryKey: 'SWEDEN' }),
+      Object.assign(new Country(), { countryKey: 'UK' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'ICELAND' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
+      Object.assign(new Country(), { countryKey: 'TURKEY' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -144,21 +144,21 @@ describe('mission service', () => {
     const mission = missions.SOUTH_AMERICA_EUROPE_7_NEIGHBOURS_3;
 
     const countries = [
-      new Country('BRASIL', null, null),
-      new Country('ARGENTINA', null, null),
-      new Country('PERU', null, null),
-      new Country('CHILE', null, null),
-      new Country('URUGUAY', null, null),
-      new Country('COLOMBIA', null, null),
-      new Country('POLAND', null, null),
-      new Country('GERMANY', null, null),
-      new Country('ITALY', null, null),
-      new Country('RUSIA', null, null),
-      new Country('SWEDEN', null, null),
-      new Country('UK', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('ICELAND', null, null),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'ARGENTINA' }),
+      Object.assign(new Country(), { countryKey: 'PERU' }),
+      Object.assign(new Country(), { countryKey: 'CHILE' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
+      Object.assign(new Country(), { countryKey: 'COLOMBIA' }),
+      Object.assign(new Country(), { countryKey: 'POLAND' }),
+      Object.assign(new Country(), { countryKey: 'GERMANY' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
+      Object.assign(new Country(), { countryKey: 'RUSIA' }),
+      Object.assign(new Country(), { countryKey: 'SWEDEN' }),
+      Object.assign(new Country(), { countryKey: 'UK' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'ICELAND' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -173,21 +173,21 @@ describe('mission service', () => {
     const mission = missions.AFRICA_NORTH_AMERICA_5_EUROPE_4;
 
     const countries = [
-      new Country('ZAIRE', null, null),
-      new Country('SAHARA', null, null),
-      new Country('ETHIOPIA', null, null),
-      new Country('SOUTH_AFRICA', null, null),
-      new Country('MADAGASCAR', null, null),
-      new Country('EGYPT', null, null),
-      new Country('CALIFORNIA', null, null),
-      new Country('OREGON', null, null),
-      new Country('ALASKA', null, null),
-      new Country('TERRANOVA', null, null),
-      new Country('LABRADOR', null, null),
-      new Country('YUKON', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('ITALY', null, null),
+      Object.assign(new Country(), { countryKey: 'ZAIRE' }),
+      Object.assign(new Country(), { countryKey: 'SAHARA' }),
+      Object.assign(new Country(), { countryKey: 'ETHIOPIA' }),
+      Object.assign(new Country(), { countryKey: 'SOUTH_AFRICA' }),
+      Object.assign(new Country(), { countryKey: 'MADAGASCAR' }),
+      Object.assign(new Country(), { countryKey: 'EGYPT' }),
+      Object.assign(new Country(), { countryKey: 'CALIFORNIA' }),
+      Object.assign(new Country(), { countryKey: 'OREGON' }),
+      Object.assign(new Country(), { countryKey: 'ALASKA' }),
+      Object.assign(new Country(), { countryKey: 'TERRANOVA' }),
+      Object.assign(new Country(), { countryKey: 'LABRADOR' }),
+      Object.assign(new Country(), { countryKey: 'YUKON' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -202,37 +202,37 @@ describe('mission service', () => {
     const mission = missions.AFRICA_NORTH_AMERICA_5_EUROPE_4;
 
     const countries = [
-      new Country('ZAIRE', null, null),
-      new Country('SAHARA', null, null),
-      new Country('ETHIOPIA', null, null),
-      new Country('SOUTH_AFRICA', null, null),
-      new Country('MADAGASCAR', null, null),
-      new Country('GOBI', null, null),
-      new Country('CALIFORNIA', null, null),
-      new Country('OREGON', null, null),
-      new Country('ALASKA', null, null),
-      new Country('TERRANOVA', null, null),
-      new Country('LABRADOR', null, null),
-      new Country('YUKON', null, null),
-      new Country('SPAIN', null, null),
-      new Country('FRANCE', null, null),
-      new Country('ITALY', null, null),
-      new Country('ARGENTINA', null, null),
-      new Country('BRASIL', null, null),
-      new Country('COLOMBIA', null, null),
-      new Country('PERU', null, null),
-      new Country('URUGUAY', null, null),
-      new Country('MEXICO', null, null),
-      new Country('ARAL', null, null),
-      new Country('TARTARIA', null, null),
-      new Country('AUSTRALIA', null, null),
-      new Country('BORNEO', null, null),
-      new Country('JAVA', null, null),
-      new Country('MALASIA', null, null),
-      new Country('TAIMIR', null, null),
-      new Country('KAMCHATKA', null, null),
-      new Country('JAPON', null, null),
-      new Country('RUSIA', null, null),
+      Object.assign(new Country(), { countryKey: 'ZAIRE' }),
+      Object.assign(new Country(), { countryKey: 'SAHARA' }),
+      Object.assign(new Country(), { countryKey: 'ETHIOPIA' }),
+      Object.assign(new Country(), { countryKey: 'SOUTH_AFRICA' }),
+      Object.assign(new Country(), { countryKey: 'MADAGASCAR' }),
+      Object.assign(new Country(), { countryKey: 'GOBI' }),
+      Object.assign(new Country(), { countryKey: 'CALIFORNIA' }),
+      Object.assign(new Country(), { countryKey: 'OREGON' }),
+      Object.assign(new Country(), { countryKey: 'ALASKA' }),
+      Object.assign(new Country(), { countryKey: 'TERRANOVA' }),
+      Object.assign(new Country(), { countryKey: 'LABRADOR' }),
+      Object.assign(new Country(), { countryKey: 'YUKON' }),
+      Object.assign(new Country(), { countryKey: 'SPAIN' }),
+      Object.assign(new Country(), { countryKey: 'FRANCE' }),
+      Object.assign(new Country(), { countryKey: 'ITALY' }),
+      Object.assign(new Country(), { countryKey: 'ARGENTINA' }),
+      Object.assign(new Country(), { countryKey: 'BRASIL' }),
+      Object.assign(new Country(), { countryKey: 'COLOMBIA' }),
+      Object.assign(new Country(), { countryKey: 'PERU' }),
+      Object.assign(new Country(), { countryKey: 'URUGUAY' }),
+      Object.assign(new Country(), { countryKey: 'MEXICO' }),
+      Object.assign(new Country(), { countryKey: 'ARAL' }),
+      Object.assign(new Country(), { countryKey: 'TARTARIA' }),
+      Object.assign(new Country(), { countryKey: 'AUSTRALIA' }),
+      Object.assign(new Country(), { countryKey: 'BORNEO' }),
+      Object.assign(new Country(), { countryKey: 'JAVA' }),
+      Object.assign(new Country(), { countryKey: 'MALASIA' }),
+      Object.assign(new Country(), { countryKey: 'TAIMIR' }),
+      Object.assign(new Country(), { countryKey: 'KAMCHATKA' }),
+      Object.assign(new Country(), { countryKey: 'JAPON' }),
+      Object.assign(new Country(), { countryKey: 'RUSIA' }),
     ];
 
     const missionCompleted = MissionService.missionCompleted(mission, countries);
@@ -254,8 +254,8 @@ describe('mission service', () => {
     expect.hasAssertions();
 
     const countries = [
-      new Country('ZAIRE', null, null),
-      new Country('SAHARA', null, null),
+      Object.assign(new Country(), { countryKey: 'ZAIRE' }),
+      Object.assign(new Country(), { countryKey: 'SAHARA' }),
     ];
 
     const missions = MissionService.getAllMissions();

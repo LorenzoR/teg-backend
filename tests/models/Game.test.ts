@@ -1,15 +1,8 @@
 import _ from 'lodash';
 
-// eslint-disable-next-line import/extensions
-import Game from '../../src/models/Game';
-// eslint-disable-next-line import/extensions
-import DynamoDBOffline from '../../src/services/DynamoDBOffline';
-// eslint-disable-next-line import/extensions
-import DiceService from '../../src/services/DiceService';
 
-// const diceService = new DiceService();
-// const dynamoDBOffline = new DynamoDBOffline('local');
-// const gameService = new GameService(dynamoDBOffline, diceService);
+import Game from '../../src/models/Game';
+import Player from '../../src/models/Player';
 
 const gameId = '1234';
 
@@ -58,39 +51,20 @@ describe('game model', () => {
   it('can create a new game', async () => {
     expect.hasAssertions();
 
-    game = new Game({
-      UUID: '1234',
-      guests: [],
-      players: [],
-      countries: null,
-      round: null,
-      eventsLog: [],
-      gameStatus: null,
-      countryCards: null,
-      winner: null,
-    });
+    game = Object.assign(new Game(),
+      {
+        UUID: '1234',
+        guests: [],
+        players: [],
+        countries: null,
+        round: null,
+        eventsLog: [],
+        gameStatus: null,
+        countryCards: null,
+        winner: null,
+      });
+
     expect(game.UUID).toBe('1234');
-  });
-
-  it('can add player to a game', async () => {
-    expect.hasAssertions();
-
-    game.addPlayer(players[0]);
-    game.addPlayer(players[1]);
-    game.addPlayer(players[2]);
-
-    expect(game.players).toHaveLength(players.length);
-    expect(game.players[0].id).toBe(players[0].id);
-    expect(game.players[1].id).toBe(players[1].id);
-    expect(game.players[2].id).toBe(players[2].id);
-  });
-
-  it('can remove player from a game', async () => {
-    expect.hasAssertions();
-
-    const response = game.removePlayer('2');
-
-    expect(response.id).toBe('2');
   });
 
   it('can add guest to a game', async () => {
@@ -113,12 +87,33 @@ describe('game model', () => {
     expect(response.guests[0].id).toBe('10');
   });
 
+  it('can add player to a game', async () => {
+    expect.hasAssertions();
+
+    game.addPlayer(Object.assign(new Player(), players[0]));
+    game.addPlayer(Object.assign(new Player(), players[1]));
+    game.addPlayer(Object.assign(new Player(), players[2]));
+
+    expect(game.players).toHaveLength(players.length);
+    expect(game.players[0].id).toBe(players[0].id);
+    expect(game.players[1].id).toBe(players[1].id);
+    expect(game.players[2].id).toBe(players[2].id);
+  });
+
+  it('can remove player from a game', async () => {
+    expect.hasAssertions();
+
+    const response = game.removePlayer('2');
+
+    expect(response.id).toBe('2');
+  });
+
   it('can start a game', async () => {
     expect.hasAssertions();
 
     game.startGame();
     expect(game.gameStatus).toBe('started');
-    expect(game.countries.BRASIL.state.troops).toBe(1);
+    expect(game.countries[0].state.troops).toBe(1);
     expect(game.round.playerIndex).toBe(0);
     expect(game.countryCards).toHaveLength(50);
   });
@@ -146,12 +141,12 @@ describe('game model', () => {
     expect.hasAssertions();
 
     // Assign south america to player 1
-    [game.countries.ARGENTINA.state.player] = players;
-    [game.countries.BRASIL.state.player] = players;
-    [game.countries.COLOMBIA.state.player] = players;
-    [game.countries.CHILE.state.player] = players;
-    [game.countries.PERU.state.player] = players;
-    [game.countries.URUGUAY.state.player] = players;
+    [(_.find(game.countries, { countryKey: 'ARGENTINA' })).state.player] = players;
+    [(_.find(game.countries, { countryKey: 'BRASIL' })).state.player] = players;
+    [(_.find(game.countries, { countryKey: 'COLOMBIA' })).state.player] = players;
+    [(_.find(game.countries, { countryKey: 'CHILE' })).state.player] = players;
+    [(_.find(game.countries, { countryKey: 'PERU' })).state.player] = players;
+    [(_.find(game.countries, { countryKey: 'URUGUAY' })).state.player] = players;
 
     const troopsPerPlayer = Game.calculateTroopsToAdd(game.players, game.countries);
     console.log('troopsPerPlayer', troopsPerPlayer);
@@ -164,7 +159,7 @@ describe('game model', () => {
     const countryKey = 'BRASIL';
 
     // Assign country to player
-    [game.countries[countryKey].state.player] = game.players;
+    [(_.find(game.countries, { countryKey })).state.player] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
@@ -181,7 +176,9 @@ describe('game model', () => {
 
     // Assign country to player
     const countryKey = 'BRASIL';
-    [game.countries[countryKey].state.player] = game.players;
+    const country = _.find(game.countries, { countryKey });
+
+    [country.state.player] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
@@ -190,7 +187,7 @@ describe('game model', () => {
     const newTroops = 4;
     game.addTroops(game.players[0].id, countryKey, newTroops);
 
-    const expectedTroops = game.countries.BRASIL.state.troops + game.countries.BRASIL.state.newTroops;
+    const expectedTroops = country.state.troops + country.state.newTroops;
     expect(expectedTroops).toBe(newTroops + 1);
   });
 
@@ -199,14 +196,15 @@ describe('game model', () => {
 
     // Assign country to player
     const countryKey = 'BRASIL';
-    [game.countries[countryKey].state.player] = game.players;
+    const country = _.find(game.countries, { countryKey });
+    [country.state.player] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
 
     const troopsToRemove = 4;
     game.addTroops(game.players[0].id, countryKey, -troopsToRemove);
-    expect(game.countries.BRASIL.state.troops).toBe(1);
+    expect(country.state.troops).toBe(1);
   });
 
   it('can not attack with just one troop', async () => {
@@ -214,7 +212,7 @@ describe('game model', () => {
 
     const attacker = 'BRASIL';
     const defender = 'ARGENTINA';
-    const playerColor = players[0].color;
+
     const errorMsg = 'Attacker needs at least 2 troops to attack';
 
     // Set round to attack
@@ -226,96 +224,102 @@ describe('game model', () => {
   it('can not attack if country belongs to someone else', async () => {
     expect.hasAssertions();
 
-    const attacker = 'BRASIL';
-    const defender = 'ARGENTINA';
+    const attackerKey = 'BRASIL';
+    const defenderKey = 'ARGENTINA';
     const playerColor = game.players[1].color;
-    const errorMsg = `Country ${attacker} does not belong to ${playerColor}`;
+    const errorMsg = `Country ${attackerKey} does not belong to ${playerColor}`;
 
     // Set round to add troops
     game.round.type = 'addTroops';
     game.round.playerIndex = 1;
 
     // Add troops to country
-    [game.countries[attacker].state.player] = game.players;
-    game.countries[attacker].state.troops = 10;
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
+    attacker.state.troops = 10;
 
     // Set country to player 3
-    [, game.countries[defender].state.player] = game.players;
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
 
     // Set round to attack
     game.round.type = 'attack';
 
-    expect(() => game.attack(game.players[1].id, attacker, defender)).toThrow(errorMsg);
+    expect(() => game.attack(game.players[1].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
   it('can not attack from invalid country', async () => {
     expect.hasAssertions();
 
-    const attacker = 'INVALID_COUNTRY';
-    const defender = 'ARGENTINA';
+    const attackerKey = 'INVALID_COUNTRY';
+    const defenderKey = 'ARGENTINA';
 
     // Set round to add troops
     game.round.type = 'addTroops';
     game.round.playerIndex = 0;
 
     // Set defender to player 3
-    [, game.countries[defender].state.player] = game.players;
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
 
     // Set round to attack
     game.round.type = 'attack';
 
-    const errorMsg = `Country ${attacker} not found`;
+    const errorMsg = `Country ${attackerKey} not found`;
 
-    expect(() => game.attack(game.players[0].id, attacker, defender)).toThrow(errorMsg);
+    expect(() => game.attack(game.players[0].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
   it('can not attack to invalid country', async () => {
     expect.hasAssertions();
 
-    const attacker = 'BRASIL';
-    const defender = 'INVALID_COUNTRY';
+    const attackerKey = 'BRASIL';
+    const defenderKey = 'INVALID_COUNTRY';
 
     // Set round to add troops
     game.round.type = 'addTroops';
     game.round.playerIndex = 0;
 
     // Set attacker to player 1
-    [game.countries[attacker].state.player] = game.players;
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
 
     // Add troops to country
-    game.countries[attacker].state.troops = 4;
+    attacker.state.troops = 4;
 
     // Set round to attack
     game.round.type = 'attack';
 
-    const errorMsg = `Country ${defender} not found`;
+    const errorMsg = `Country ${defenderKey} not found`;
 
-    expect(() => game.attack(game.players[0].id, attacker, defender)).toThrow(errorMsg);
+    expect(() => game.attack(game.players[0].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
   it('can attack country', async () => {
     expect.hasAssertions();
 
-    const attacker = 'BRASIL';
-    const defender = 'ARGENTINA';
+    const attackerKey = 'BRASIL';
+    const defenderKey = 'ARGENTINA';
 
     // Set round to add troops
     game.round.type = 'addTroops';
     game.round.playerIndex = 0;
 
     // Set attacker to player 1
-    [game.countries[attacker].state.player] = game.players;
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
 
     // Add troops to country
-    game.countries[attacker].state.troops = 4;
+    attacker.state.troops = 4;
 
     // Set defender to player 3
-    [, game.countries[defender].state.player] = game.players;
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
 
     // Set round to attack
     game.round.type = 'attack';
 
-    const response = game.attack(game.players[0].id, attacker, defender);
+    const response = game.attack(game.players[0].id, attackerKey, defenderKey);
 
     expect(response.dices.attacker).toHaveLength(3);
     expect(response.dices.defender).toHaveLength(1);
@@ -351,8 +355,8 @@ describe('game model', () => {
   it('can move troops', async () => {
     expect.hasAssertions();
 
-    const source = 'AUSTRALIA';
-    const target = 'BORNEO';
+    const sourceKey = 'AUSTRALIA';
+    const targetKey = 'BORNEO';
     const troopsToMove = 3;
     const addedTroops = 3;
 
@@ -361,19 +365,21 @@ describe('game model', () => {
     game.round.playerIndex = 0;
 
     // Set source to player 1 and add troops to country
-    [game.countries[source].state.player] = game.players;
-    game.countries[source].state.troops = addedTroops + 1;
+    const source = _.find(game.countries, { countryKey: sourceKey });
+    [source.state.player] = game.players;
+    source.state.troops = addedTroops + 1;
 
     // Set target to player 1
-    [game.countries[target].state.player] = game.players;
+    const target = _.find(game.countries, { countryKey: targetKey });
+    [target.state.player] = game.players;
 
     // Add troops to country
-    game.addTroops(game.players[0].id, source, addedTroops);
+    game.addTroops(game.players[0].id, sourceKey, addedTroops);
 
     // Set round to attack
     game.round.type = 'attack';
 
-    const response = game.moveTroops(game.players[0].id, source, target, troopsToMove, false);
+    const response = game.moveTroops(game.players[0].id, sourceKey, targetKey, troopsToMove, false);
 
     expect(response.source.state.troops).toBe(addedTroops - troopsToMove + 1);
     expect(response.target.state.troops + response.target.state.newTroops).toBe(1 + troopsToMove);
@@ -382,8 +388,8 @@ describe('game model', () => {
   it('can not move troops if target and source are the same', async () => {
     expect.hasAssertions();
 
-    const source = 'AUSTRALIA';
-    const target = source;
+    const sourceKey = 'AUSTRALIA';
+    const targetKey = sourceKey;
     const troopsToMove = 3;
     const addedTroops = 3;
 
@@ -392,21 +398,23 @@ describe('game model', () => {
     game.round.playerIndex = 0;
 
     // Set source to player 1 and add troops to country
-    [game.countries[source].state.player] = game.players;
-    game.countries[source].state.troops = addedTroops + 1;
+    const source = _.find(game.countries, { countryKey: sourceKey });
+    [source.state.player] = game.players;
+    source.state.troops = addedTroops + 1;
 
     // Set target to player 1
-    [game.countries[target].state.player] = game.players;
+    const target = _.find(game.countries, { countryKey: targetKey });
+    [target.state.player] = game.players;
 
     // Add troops to country
-    game.addTroops(game.players[0].id, source, addedTroops);
+    game.addTroops(game.players[0].id, sourceKey, addedTroops);
 
     // Set round to attack
     game.round.type = 'attack';
 
     const errorMsg = 'Source and target can not be the same';
 
-    expect(() => game.moveTroops(game.players[0].id, source, target, troopsToMove, false)).toThrow(errorMsg);
+    expect(() => game.moveTroops(game.players[0].id, sourceKey, targetKey, troopsToMove, false)).toThrow(errorMsg);
   });
 
   it('can exchange three cards', async () => {
@@ -467,7 +475,8 @@ describe('game model', () => {
     const { cards } = player;
 
     // Assign a country to player 1
-    [game.countries[cards[0].country].state.player] = game.players;
+    [(_.find(game.countries, { countryKey: cards[0].country })).state.player] = game.players;
+    // [game.countries[cards[0].country].state.player] = game.players;
 
     // Exchange card
     const response = game.exchangeCard(player.id, cards[0].country);
