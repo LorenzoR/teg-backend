@@ -1,6 +1,5 @@
 import _ from 'lodash';
 
-
 import Game from '../../src/models/Game';
 import Player from '../../src/models/Player';
 
@@ -319,7 +318,7 @@ describe('game model', () => {
     expect(() => game.attack(game.players[0].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
-  it('can attack country', async () => {
+  it('can attack country win random dices', async () => {
     expect.hasAssertions();
 
     const attackerKey = 'BRASIL';
@@ -347,20 +346,74 @@ describe('game model', () => {
 
     expect(response.dices.attacker).toHaveLength(3);
     expect(response.dices.defender).toHaveLength(1);
+  });
 
-    // Sort dices ascending to see who won
-    const dices = { attacker: [], defender: [] };
-    dices.attacker = [...response.dices.attacker].sort((a, b) => b - a);
-    dices.defender = [...response.dices.defender].sort((a, b) => b - a);
+  it('can attack country and win', async () => {
+    expect.hasAssertions();
 
-    // eslint-disable-next-line jest/no-if
-    if (dices.attacker[0] > dices.defender[0]) {
-      expect(response.countryConquered).toBe(true);
-      expect(response.defender.state.player.id).toBe(game.players[0].id);
-    } else {
-      expect(response.countryConquered).toBe(false);
-      expect(response.defender.state.player.id).toBe(game.players[1].id);
-    }
+    const attackerKey = 'BRASIL';
+    const defenderKey = 'ARGENTINA';
+
+    // Set round to add troops
+    game.round.type = 'addTroops';
+    game.round.playerIndex = 0;
+
+    // Set attacker to player 1
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
+
+    // Add troops to country
+    attacker.state.troops = 4;
+
+    // Set defender to player 3
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
+
+    // Set round to attack
+    game.round.type = 'attack';
+
+    const dices = { attacker: [6, 6, 6], defender: [1, 1, 1] };
+    const response = game.attack(game.players[0].id, attackerKey, defenderKey, dices);
+
+    expect(response.dices.attacker).toHaveLength(3);
+    expect(response.dices.defender).toHaveLength(1);
+
+    expect(response.countryConquered).toBe(true);
+    expect(response.defender.state.player.id).toBe(game.players[0].id);
+  });
+
+  it('can attack country and lose', async () => {
+    expect.hasAssertions();
+
+    const attackerKey = 'BRASIL';
+    const defenderKey = 'ARGENTINA';
+
+    // Set round to add troops
+    game.round.type = 'addTroops';
+    game.round.playerIndex = 0;
+
+    // Set attacker to player 1
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
+
+    // Add troops to country
+    attacker.state.troops = 4;
+
+    // Set defender to player 3
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
+
+    // Set round to attack
+    game.round.type = 'attack';
+
+    const dices = { attacker: [1, 1, 1], defender: [6, 6, 6] };
+    const response = game.attack(game.players[0].id, attackerKey, defenderKey, dices);
+
+    expect(response.dices.attacker).toHaveLength(3);
+    expect(response.dices.defender).toHaveLength(1);
+
+    expect(response.countryConquered).toBe(false);
+    expect(response.defender.state.player.id).toBe(game.players[1].id);
   });
 
   it('can finish round', async () => {
@@ -500,18 +553,20 @@ describe('game model', () => {
 
     // Assign a country to player 1
     [(_.find(game.countries, { countryKey: cards[0].country })).state.player] = game.players;
-    // [game.countries[cards[0].country].state.player] = game.players;
+
+    const country = _.find(game.countries, { countryKey: cards[0].country });
+    const troopbsBeforeExchange = country.state.newTroops + country.state.troops;
 
     // Exchange card
     const response = game.exchangeCard(player.id, cards[0].country);
 
-    const { countries } = game;
-    const country = _.find(countries, (obj) => obj.countryKey === cards[0].country);
+    // const { countries } = game;
+    // const country = _.find(countries, (obj) => obj.countryKey === cards[0].country);
 
     player = _.find(response.players, (obj) => obj.color === game.players[0].color);
 
     expect(player.cards[0].exchanged).toBe(true);
-    expect(country.state.newTroops + country.state.troops).toBe(3);
+    expect(country.state.newTroops + country.state.troops).toBe(troopbsBeforeExchange + 2);
   });
 
   it('can re-connect player', async () => {

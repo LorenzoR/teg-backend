@@ -16,7 +16,6 @@ import Round, { RoundType } from './Round';
 import EventsLog from './EventsLog';
 import { ContinentTypes } from './Continent';
 
-
 import MissionService from '../services/MissionService';
 import DiceService from '../services/DiceService';
 import DealService from '../services/DealService';
@@ -524,7 +523,7 @@ class Game {
   }
 
   // Attack country
-  public attack(playerId: string, attackerKey: string, defenderKey: string): any {
+  public attack(playerId: string, attackerKey: string, defenderKey: string, dicesP: { attacker: number[]; defender: number[] } = null): any {
     if (attackerKey === defenderKey) {
       throw new Error('Attacker and defender can not be the same');
     }
@@ -596,9 +595,17 @@ class Game {
     );
 
     // Roll dices and sort descending
-    const dices = { attacker: [], defender: [] };
-    dices.attacker = this.diceService.throwDices(numberOfAttackerDices).sort((a, b) => b - a);
-    dices.defender = this.diceService.throwDices(numberOfDefenderDices).sort((a, b) => b - a);
+    let dices;
+
+    if (!dicesP) {
+      dices = { attacker: [], defender: [] };
+      dices.attacker = this.diceService.throwDices(numberOfAttackerDices).sort((a, b) => b - a);
+      dices.defender = this.diceService.throwDices(numberOfDefenderDices).sort((a, b) => b - a);
+    } else {
+      dices = { ...dicesP };
+      dices.attacker = [...dices.attacker].slice(0, numberOfAttackerDices);
+      dices.defender = [...dices.defender].slice(0, numberOfDefenderDices);
+    }
 
     // Get copy with only the dices we need to compare attacker vs defender
     const dicesCopy = { attacker: [], defender: [] };
