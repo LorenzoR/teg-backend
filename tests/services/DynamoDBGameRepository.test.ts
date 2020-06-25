@@ -6,7 +6,7 @@ import Country from '../../src/models/Country';
 
 import DynamoDBGameRepository from '../../src/services/DynamoDBGameRepository';
 
-const dynamoDBGameRepository = new DynamoDBGameRepository('local');
+const dynamoDBGameRepository = new DynamoDBGameRepository(process.env.NODE_ENV);
 
 const gameId = '1234';
 
@@ -81,8 +81,6 @@ describe('dynamoDB mapper wrapper service', () => {
     game.gameStatus = newGameStatus;
 
     const updateResponse = await dynamoDBGameRepository.update(game);
-
-    console.log('updateResponse', updateResponse);
 
     expect(updateResponse.gameStatus).toBe(newGameStatus);
   });

@@ -27,7 +27,7 @@ class APIGatewayWebsocketsService {
 
         return true;
       } catch (error) {
-        console.error('APIGatewayWebsocketsService::send', error);
+        console.error('APIGatewayWebsocketsService::send ERROR', error.message);
         return false;
       }
     }
@@ -36,7 +36,7 @@ class APIGatewayWebsocketsService {
     return false;
   }
 
-  public async broadcast(data: {}, connectionIds: string[]): Promise<boolean> {
+  public async broadcast(data: {}, connectionIds: string[]): Promise<{ id: string; response: boolean } []> {
     // Remove duplicates
     const uniqueConnectionIds = [...new Set(connectionIds)];
     const promises = [];
@@ -45,10 +45,17 @@ class APIGatewayWebsocketsService {
       promises.push(this.send(connectionId, data));
     });
 
-    const response = await Promise.all(promises);
+    const promiseResponse = await Promise.all(promises);
+
+    const response: { id: string; response: boolean } [] = [];
+
+    promiseResponse.forEach((aResponse, index) => {
+      response.push({ id: uniqueConnectionIds[index], response: aResponse });
+    });
+
     console.log('Broadcast response', response);
 
-    return true;
+    return response;
   }
 }
 

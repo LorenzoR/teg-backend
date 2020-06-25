@@ -13,7 +13,8 @@ before_install:
   - npm install -g serverless
 install:
   - npm install
-script:
   - sls dynamodb install
+script:
   - sls dynamodb start --migrate --stage dev & sleep 10 && npm run coveralls
-  - pgrep -f "DynamoDBLocal.jar" | xargs kill
+after_success:
+  - serverless deploy --stage test

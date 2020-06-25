@@ -1,17 +1,14 @@
 import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
-// import { ApiGatewayManagementApi } from 'aws-sdk';
 import 'source-map-support/register';
 import _ from 'lodash';
 
-// import GameService from './services/GameService';
-// import DynamoDBOffline from './services/DynamoDBOffline';
 import APIGatewayWebsocketsService from './services/APIGatewayWebsocketsService';
 
 import DynamoDBGameRepository from './services/DynamoDBGameRepository';
+import WebSocketConnectionRepository from './services/DynamoDBWebSocketConnectionsRepository';
 
-// import { PlayerTypes } from './models/Player';
 import Game from './models/Game';
-import { RoundType } from './models/Round';
+import WebSocketConnection from './models/WebSocketConnection';
 
 const ActionTypes = {
   TROOPS_ADDED: 'troopsAdded',
@@ -22,57 +19,29 @@ const ActionTypes = {
 // const gameService = new GameService(new DynamoDBOffline('local'));
 
 let endpoint = 'http://localhost:3001';
-// let endpoint = '0su6p4d8cf.execute-api.ap-southeast-2.amazonaws.com/dev';
 
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(endpoint);
 
 // const gameRepository = new GameRepository(process.env.STAGE || 'local');
-const gameRepository = new DynamoDBGameRepository('local');
+const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
+const webSocketConnectionRepository = new WebSocketConnectionRepository(process.env.STAGE || 'local');
 
 const getGameIdFromEvent = (event: APIGatewayProxyEvent): string => event.queryStringParameters.game_id;
 
-/*
-const sendBAK = async (connectionId: string, data: {}): Promise<boolean> => {
-  if (connectionId) {
-    const apigwManagementApi = new ApiGatewayManagementApi({
-      apiVersion: '2018-11-29',
-      endpoint,
-    });
-
-    await apigwManagementApi
-      .postToConnection({ ConnectionId: connectionId, Data: data })
-      .promise();
-
-    return true;
-  }
-
-  // No connection ID
-  return false;
-};
-
-const broadcastBAK = async (data: {}, connectionIds: string[]): Promise<boolean> => {
-  const promises = [];
-
-  for (let i = 0; i < connectionIds.length; i += 1) {
-    promises.push(send(connectionIds[i], data));
-  }
-
-  await Promise.all(promises);
-
-  return true;
-};
-*/
-
-const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolean> => {
+const sendMessageToAllPlayers = async (game: Game, data: {}): Promise<boolean> => {
   // const game = await gameService.getGame(gameId);
-  const game = await gameRepository.getByID(gameId);
+  // const game = await gameRepository.getByID(gameId);
 
   if (!game) {
-    throw new Error(`No game with ID ${gameId}`);
+    throw new Error('No game');
   }
 
-  const connectionIds = [];
+  // Get online players
+  const onlinePlayers = game.getOnlinePlayersAndGuests();
 
+  const connectionIds = _.map(onlinePlayers, 'id');
+
+  /*
   if (game.players) {
     console.log('sending to players');
     game.players.forEach((player) => {
@@ -86,11 +55,31 @@ const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolea
       connectionIds.push(guest.id);
     });
   }
+  */
 
   console.log('sending to ', connectionIds);
 
+  let updateGame = false;
+
   try {
-    await apiGatewayWebsocketsService.broadcast(data, connectionIds);
+    const responses = await apiGatewayWebsocketsService.broadcast(data, connectionIds);
+
+    // Set player offline if response is false
+    responses.forEach((response) => {
+      if (!response.response) {
+        const player = game.getPlayerById(response.id);
+        if (player) {
+          console.log(`Set player ${player.id} to offline`);
+          player.playerStatus = 'offline';
+          updateGame = true;
+        }
+      }
+    });
+
+    if (updateGame) {
+      await gameRepository.update(game);
+    }
+
     return true;
   } catch (error) {
     console.error(error);
@@ -98,12 +87,12 @@ const sendMessageToAllPlayers = async (gameId: string, data: {}): Promise<boolea
   }
 };
 
-const sendGameInfoToAllPlayers = async (gameId: string): Promise<boolean> => {
+const sendGameInfoToAllPlayers = async (game: Game): Promise<boolean> => {
   // const game = await gameService.getGame(gameId);
-  const game = await gameRepository.getByID(gameId);
+  // const game = await gameRepository.getByID(gameId);
   // const connectionIds = [];
 
-  if (!game || !game.players) {
+  if (!game) {
     return null;
   }
 
@@ -160,37 +149,81 @@ const setEndpointFromEvent = (event) => {
   }
 };
 
+export const newGameHandler: APIGatewayProxyHandler = async (event, _context) => {
+  const newGameId = Game.generateNewGameUUID();
+
+  try {
+    const game = new Game();
+    game.UUID = newGameId;
+
+    await gameRepository.insert(game);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ newGameId }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+      },
+    };
+  } catch (error) {
+    console.log('Event: ', event);
+    console.error(error);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify(error),
+    };
+  }
+};
+
 export const connectHandler: APIGatewayProxyHandler = async (event, _context) => {
   console.log('Connect Handler');
 
-  let newGame = false;
+  const { connectionId } = event.requestContext;
+  const isNewGame = false;
 
   // Add to guests so we have the connection ID
   const gameId = getGameIdFromEvent(event);
   console.log(`Trying to get game ID ${gameId}`);
 
+  // Add connection
+  const newConnection = new WebSocketConnection();
+  newConnection.gameId = gameId;
+  newConnection.connectionId = connectionId;
+  await webSocketConnectionRepository.insert(newConnection);
+
   try {
   // Get players from game
-    let game = await gameRepository.getByID(gameId);
+    const game = await gameRepository.getByID(gameId);
 
     // Create game if there isn't one
     if (!game) {
+      /*
       console.log(`Game not found, creating game ID ${gameId}`);
       // game = await gameService.newGame(gameId);
       game = (new Game()).initGame();
       game.UUID = gameId;
-      newGame = true;
+      isNewGame = true;
       console.log(`Created game ID ${gameId}`);
-    } else {
-      console.log(`Got game ID ${gameId}`);
+      */
+
+      console.error(`Game ${gameId} not found`);
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify(`Game ${gameId} not found`),
+      };
     }
+    console.log(`Got game ID ${gameId}`);
+
 
     // Add guest
     game.addGuest(event.requestContext.connectionId);
     console.log(`Added guest ${event.requestContext.connectionId} to game ID ${gameId}`);
 
     // Update game
-    if (newGame) {
+    if (isNewGame) {
       await gameRepository.insert(game);
     } else {
       await gameRepository.update(game);
@@ -212,13 +245,28 @@ export const connectHandler: APIGatewayProxyHandler = async (event, _context) =>
 };
 
 export const disconnectHandler: APIGatewayProxyHandler = async (event, _context) => {
-  // Remove from guests
-  const gameId = '1234'; // getGameIdFromEvent(event);
+  console.log('Disconnect handler');
+
+  const { connectionId } = event.requestContext;
+  const webSocketConection = await webSocketConnectionRepository.getById(connectionId);
+
+  // Game not found
+  if (!webSocketConection || !webSocketConection.gameId) {
+    const errorMsg = `No game found for connection ${connectionId}`;
+    return {
+      statusCode: 400,
+      body: JSON.stringify(errorMsg),
+    };
+  }
+
+  const { gameId } = webSocketConection;
   const playerId = event.requestContext.connectionId;
 
   try {
+    // Remove connection
+    await webSocketConnectionRepository.delete(connectionId);
+
     // Get game
-    // const game = await gameService.getGame(gameId);
     const game = await gameRepository.getByID(gameId);
 
     let payload;
@@ -284,7 +332,7 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
     }
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    await sendMessageToAllPlayers(game, JSON.stringify(payload));
     console.log('Message sent', payload);
 
     // If admin left, delete game
@@ -351,7 +399,7 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
 
         // Send game info to everyone
         setEndpointFromEvent(event);
-        await sendGameInfoToAllPlayers(gameId);
+        await sendGameInfoToAllPlayers(game);
         console.log('Message sent to all players!');
 
         // Send re-connected player
@@ -364,7 +412,7 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
         };
 
         setEndpointFromEvent(event);
-        await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+        await sendMessageToAllPlayers(game, JSON.stringify(payload));
       }
     } else {
     // Game not started yet so add player
@@ -384,7 +432,7 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
       response = { action: 'joinGame', body: game };
 
       setEndpointFromEvent(event);
-      await sendMessageToAllPlayers(gameId, JSON.stringify(response));
+      await sendMessageToAllPlayers(game, JSON.stringify(response));
       console.log('Message sent to all players!');
     }
 
@@ -427,15 +475,24 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context)
       };
     }
 
-    // Get current player
-    const { players, guests } = game;
+    // Ping all players to make sure who is online
+    const pingPayload = { action: 'ping', body: { } };
+    setEndpointFromEvent(event);
+    await sendMessageToAllPlayers(game, JSON.stringify(pingPayload));
 
+    // Get current player
+    // const { players, guests, gameStatus } = game;
+    const { gameStatus } = game;
+
+    /*
     let currentPlayer = _.find(players, (obj) => obj.id === connectionId);
 
     // Player not found, try in guests
     if (!currentPlayer) {
       currentPlayer = _.find(guests, (obj) => obj.id === connectionId);
     }
+    */
+    const currentPlayer = game.getPlayerOrGuestById(connectionId);
 
     // Error. Player not found
     if (!currentPlayer) {
@@ -449,8 +506,8 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context)
     }
 
     // Send message to that connectionID only
-    const response = { action: 'playersInfo', body: { players: game.players, currentPlayer } };
-    setEndpointFromEvent(event);
+    const response = { action: 'playersInfo', body: { players: game.players, currentPlayer, gameStatus } };
+    // setEndpointFromEvent(event);
     await apiGatewayWebsocketsService.send(connectionId, JSON.stringify(response));
 
     return {
@@ -521,7 +578,7 @@ export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) 
 
       // Send game info to everyone
       setEndpointFromEvent(event);
-      await sendGameInfoToAllPlayers(gameId);
+      await sendGameInfoToAllPlayers(game);
       console.log('message sent to all players!');
 
       // Send re-connected player
@@ -534,7 +591,7 @@ export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) 
       };
 
       setEndpointFromEvent(event);
-      await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+      await sendMessageToAllPlayers(game, JSON.stringify(payload));
     }
 
     return {
@@ -581,7 +638,7 @@ export const startGameHandler: APIGatewayProxyHandler = async (event, _context) 
     const response = { action: 'gameStarted', body: game };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(response));
+    await sendMessageToAllPlayers(game, JSON.stringify(response));
     console.log('Message sent to all players!');
 
     // Send connection ID to each player
@@ -647,7 +704,7 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
     const message = { action: ActionTypes.ROUND_FINISHED, body: response };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    await sendMessageToAllPlayers(game, JSON.stringify(message));
     console.log('Message sent to all players!');
 
     return {
@@ -693,7 +750,7 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
     const message = { action: ActionTypes.TROOPS_ADDED, body: game.getGame() };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    await sendMessageToAllPlayers(game, JSON.stringify(message));
     console.log('Message sent to all players!');
 
     return {
@@ -742,13 +799,13 @@ export const attackHandler: APIGatewayProxyHandler = async (event, _context) => 
 
     // Update game
     // const response = await gameService.updateGame(game);
-    const response = await gameRepository.update(game);
+    await gameRepository.update(game);
     console.log('Game updated');
 
     const message = { action: 'countryAttacked', body: attackResponse };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    await sendMessageToAllPlayers(game, JSON.stringify(message));
     console.log('Message sent to all players!');
 
     return {
@@ -800,7 +857,7 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event, _context)
     const message = { action: 'troopsMoved', body: response };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(message));
+    await sendMessageToAllPlayers(game, JSON.stringify(message));
     console.log('Message sent to all players!');
 
     return {
@@ -821,9 +878,7 @@ export const getCardHandler: APIGatewayProxyHandler = async (event, _context) =>
   console.log('Get card handler');
 
   const eventBody = JSON.parse(event.body);
-  const {
-    gameId, playerColor,
-  } = eventBody.data;
+  const { gameId } = eventBody.data;
 
   const playerId = event.requestContext.connectionId;
 
@@ -865,7 +920,7 @@ export const getCardHandler: APIGatewayProxyHandler = async (event, _context) =>
     };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payloadBroadcast));
+    await sendMessageToAllPlayers(game, JSON.stringify(payloadBroadcast));
     console.log('Message sent to all players!');
 
     return {
@@ -886,7 +941,7 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _contex
   console.log('Exchange card handler');
 
   const eventBody = JSON.parse(event.body);
-  const { gameId, playerColor, card } = eventBody.data;
+  const { gameId, card } = eventBody.data;
 
   const playerId = event.requestContext.connectionId;
 
@@ -917,7 +972,7 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _contex
 
     // Send message to all player
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    await sendMessageToAllPlayers(game, JSON.stringify(payload));
     console.log('Message sent to all players!');
   } catch (error) {
     console.error(error);
@@ -938,7 +993,7 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
   console.log('Exchange cards handler');
 
   const eventBody = JSON.parse(event.body);
-  const { gameId, playerColor, cards } = eventBody.data;
+  const { gameId, cards } = eventBody.data;
 
   const playerId = event.requestContext.connectionId;
 
@@ -962,7 +1017,6 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
     console.log('Exchanged cards');
 
     // Update game
-    // await gameService.updateGame(game);
     await gameRepository.update(game);
     console.log('Game updated');
 
@@ -970,7 +1024,7 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
 
     // Send message to all player
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+    await sendMessageToAllPlayers(game, JSON.stringify(payload));
     console.log('Message sent to all players!');
 
     return {
@@ -1019,7 +1073,7 @@ export const chatMessageHandler: APIGatewayProxyHandler = async (event, _context
 
   // Send message to all player
   setEndpointFromEvent(event);
-  await sendMessageToAllPlayers(gameId, JSON.stringify(payload));
+  await sendMessageToAllPlayers(game, JSON.stringify(payload));
 
   return {
     statusCode: 200,

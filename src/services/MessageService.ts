@@ -17,7 +17,7 @@ class MessageService {
       this.gameService = dependencies.gameService;
     } else {
       const dynamoDBOffline = new DynamoDBOffline('local');
-      this.gameService = new GameService(dynamoDBOffline, null);
+      this.gameService = new GameService(dynamoDBOffline);
     }
   }
 

@@ -4,7 +4,6 @@ class DynamoDBOffline {
   private DynamoDB = null;
 
   constructor(stage: string) {
-    console.log('Stage', stage);
     if (stage === 'local') {
       this.DynamoDB = new DynamoDB.DocumentClient({
         region: 'localhost',
@@ -24,7 +23,6 @@ class DynamoDBOffline {
 
     try {
       const response = await this.DynamoDB.put(paramsCopy).promise();
-      console.log('put response', response);
       return response;
     } catch (error) {
       console.log(error);

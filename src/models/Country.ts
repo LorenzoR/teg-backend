@@ -4,7 +4,6 @@ import {
 import { embed } from '@aws/dynamodb-data-mapper';
 import _ from 'lodash';
 
-import Player from './Player';
 import CountryState from './CountryState';
 import { ContinentTypes } from './Continent';
 
@@ -364,11 +363,11 @@ class Country {
       return false;
     }
 
-    return this.areNeighbours(target.countryKey);
+    return this.areNeighbours(target);
   }
 
-  public areNeighbours(target): boolean {
-    return Neighbours[this.countryKey].includes(target);
+  public areNeighbours(target: Country): boolean {
+    return Neighbours[this.countryKey].includes(target.countryKey);
   }
 
   public getNeighbours(): string[] {

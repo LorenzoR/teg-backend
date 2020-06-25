@@ -1,6 +1,6 @@
 import _ from 'lodash';
 
-import { Player } from '../models/Player';
+import Player from '../models/Player';
 import Country from '../models/Country';
 
 import CountryService from './CountryService';

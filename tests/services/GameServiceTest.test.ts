@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import GameService from '../../src/services/GameService';
 import DynamoDBOffline from '../../src/services/DynamoDBOffline';
 

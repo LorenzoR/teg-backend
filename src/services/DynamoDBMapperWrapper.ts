@@ -8,7 +8,6 @@ class DynamoDBMapperWrapper {
   private mapper: DataMapper;
 
   constructor(stage: string) {
-    console.log('Stage', stage);
     if (stage === 'local') {
       this.DynamoDB = new DynamoDB({
         region: 'localhost',
@@ -16,17 +15,17 @@ class DynamoDBMapperWrapper {
         accessKeyId: 'DEFAULT_ACCESS_KEY', // needed if you don't have aws credentials at all in env
         secretAccessKey: 'DEFAULT_SECRET', // needed if you don't have aws credentials at all in env
       });
-
-      this.mapper = new DataMapper({
-        client: this.DynamoDB,
-        // client: new DynamoDB({ region: 'ap-southeast-2' }), // the SDK client used to execute operations
-        tableNamePrefix: 'local-', // optionally, you can provide a table prefix to keep your dev and prod tables separate
-      });
     } else {
-      this.DynamoDB = new DynamoDB.DocumentClient({
+      this.DynamoDB = new DynamoDB({
         region: 'ap-southeast-2',
       });
     }
+
+    this.mapper = new DataMapper({
+      client: this.DynamoDB,
+      // client: new DynamoDB({ region: 'ap-southeast-2' }), // the SDK client used to execute operations
+      tableNamePrefix: `${stage}-`, // optionally, you can provide a table prefix to keep your dev and prod tables separate
+    });
   }
 
   public async put(element: {}, attributes: Record<string, any>): Promise<boolean> {
@@ -36,7 +35,7 @@ class DynamoDBMapperWrapper {
     try {
       const response = await this.mapper.put(toSave);
 
-      return true;
+      return !!response;
     } catch (error) {
       console.error('ERROR', error);
       return false;
@@ -82,7 +81,7 @@ class DynamoDBMapperWrapper {
 
     try {
       const response = await this.mapper.delete(Object.assign(element, key));
-      return true;
+      return !!response;
     } catch (error) {
       console.error(error);
       return false;

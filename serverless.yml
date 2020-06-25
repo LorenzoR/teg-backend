@@ -54,6 +54,16 @@ provider:
         - "Fn::GetAtt": [ ConnectionIdsTable, Arn ]
 
 functions:
+# API Gateway
+  userRegistration:
+    handler: src/handler.newGameHandler
+    events:
+      - http:
+          path: new-game
+          method: post
+          cors: true
+
+# Web sockets
   connectHandler:
     handler: src/handler.connectHandler
     events:
@@ -158,13 +168,13 @@ resources: # CloudFormation template syntax
         AttributeDefinitions:
           - AttributeName: connectionId
             AttributeType: S
-          - AttributeName: gameId
-            AttributeType: S
+          #- AttributeName: gameId
+          #  AttributeType: S
         KeySchema:
           - AttributeName: connectionId
             KeyType: HASH
-          - AttributeName: gameId
-            KeyType: RANGE
+          #- AttributeName: gameId
+          #  KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1

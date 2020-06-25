@@ -1,6 +1,6 @@
 import _ from 'lodash';
 
-import { Mission } from '../models/Mission';
+import Mission from '../models/Mission';
 import { PlayerTypes } from '../models/Player';
 import { ContinentTypes } from '../models/Continent';
 import Country from '../models/Country';
@@ -208,8 +208,6 @@ class MissionService {
       // We don't need this so set to true
       hasNeighbours = true;
     }
-
-    console.log('countriesPerContinent', countriesPerContinent);
 
     if (mission.continents && mission.continents.length > 0) {
       allCountriesConquered = mission.continents.every((continent) => {

@@ -48,6 +48,15 @@ const guests = [
 let game: Game;
 
 describe('game model', () => {
+  it('can generate a random game ID', async () => {
+    expect.hasAssertions();
+
+    const randomGameId = Game.generateNewGameUUID();
+
+    expect(typeof randomGameId).toBe('string');
+    expect(randomGameId !== null).toBe(true);
+  });
+
   it('can create a new game', async () => {
     expect.hasAssertions();
 
@@ -108,6 +117,14 @@ describe('game model', () => {
     expect(response.id).toBe('2');
   });
 
+  it('can get online players and guests', async () => {
+    expect.hasAssertions();
+
+    const onlinePlayers = game.getOnlinePlayersAndGuests();
+
+    expect(onlinePlayers).toHaveLength(3);
+  });
+
   it('can start a game', async () => {
     expect.hasAssertions();
 
@@ -149,7 +166,7 @@ describe('game model', () => {
     [(_.find(game.countries, { countryKey: 'URUGUAY' })).state.player] = players;
 
     const troopsPerPlayer = Game.calculateTroopsToAdd(game.players, game.countries);
-    console.log('troopsPerPlayer', troopsPerPlayer);
+
     expect(troopsPerPlayer[players[0].color].SOUTH_AMERICA).toBe(3);
   });
 
@@ -210,15 +227,22 @@ describe('game model', () => {
   it('can not attack with just one troop', async () => {
     expect.hasAssertions();
 
-    const attacker = 'BRASIL';
-    const defender = 'ARGENTINA';
+    // Assign country to player 1
+    const attackerKey = 'BRASIL';
+    const attacker = _.find(game.countries, { countryKey: attackerKey });
+    [attacker.state.player] = game.players;
+
+    // Assign country to player 2
+    const defenderKey = 'ARGENTINA';
+    const defender = _.find(game.countries, { countryKey: defenderKey });
+    [, defender.state.player] = game.players;
 
     const errorMsg = 'Attacker needs at least 2 troops to attack';
 
     // Set round to attack
     game.round.type = 'attack';
 
-    expect(() => game.attack(game.players[0].id, attacker, defender)).toThrow(errorMsg);
+    expect(() => game.attack(game.players[0].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
   it('can not attack if country belongs to someone else', async () => {
@@ -394,7 +418,7 @@ describe('game model', () => {
     const addedTroops = 3;
 
     // Set round to add troops
-    game.round.type = 'addTroops';
+    // game.round.type = 'addTroops';
     game.round.playerIndex = 0;
 
     // Set source to player 1 and add troops to country
@@ -402,12 +426,15 @@ describe('game model', () => {
     [source.state.player] = game.players;
     source.state.troops = addedTroops + 1;
 
+    // Add free troops to add
+    // game.players[0].troopsToAdd.free =
+
     // Set target to player 1
     const target = _.find(game.countries, { countryKey: targetKey });
     [target.state.player] = game.players;
 
     // Add troops to country
-    game.addTroops(game.players[0].id, sourceKey, addedTroops);
+    // game.addTroops(game.players[0].id, sourceKey, addedTroops);
 
     // Set round to attack
     game.round.type = 'attack';
@@ -456,9 +483,6 @@ describe('game model', () => {
 
     const player = _.find(game.players, (obj) => obj.color === game.players[0].color);
     const { newCard } = response;
-
-    console.log('NEW CARD', newCard);
-    console.log('CARDS', game.countryCards);
 
     expect(newCard).toHaveProperty('country');
     expect(game.countryCards).toHaveLength(50 - 1);

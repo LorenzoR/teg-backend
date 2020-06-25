@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/extensions
 import Country from '../../src/models/Country';
 
 const players = [
@@ -37,7 +36,8 @@ describe('country', () => {
     expect.hasAssertions();
 
     const country = Object.assign(new Country(), { countryKey: 'BRASIL' });
-    const areNeighbours = country.areNeighbours('ARGENTINA');
+    const target = Object.assign(new Country(), { countryKey: 'ARGENTINA' });
+    const areNeighbours = country.areNeighbours(target);
 
     expect(areNeighbours).toBe(true);
   });

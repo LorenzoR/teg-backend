@@ -47,16 +47,10 @@ describe('dynamoDB mapper wrapper service', () => {
     const key = { UUID: '1' };
     const response = await dynamoDBMapperWrapper.get(new Game(), key);
 
-    console.log('holaaaa');
-
-    const anotherPlayer = new Player();
-
     const player = Object.assign(new Player(), response.players[0]);
 
-    console.log('player', player);
-    // console.log('asdasadasdas', player.playerIsAdmin());
-
     expect(response.UUID).toBe(key.UUID);
+    expect(player.id).toBe('1');
   });
 
   it('can update a game', async () => {
@@ -68,10 +62,9 @@ describe('dynamoDB mapper wrapper service', () => {
 
     const updateResponse = await dynamoDBMapperWrapper.update(game);
 
-    console.log('updateResponse', updateResponse);
-
     const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
 
+    expect(updateResponse.UUID).toBe(key.UUID);
     expect(getResponse.gameStatus).toBe(game.gameStatus);
   });
 
@@ -82,10 +75,9 @@ describe('dynamoDB mapper wrapper service', () => {
 
     const response = await dynamoDBMapperWrapper.delete(new Game(), key);
 
-    console.log('deleteResponse', response);
-
     const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
 
+    expect(response).toBe(true);
     expect(getResponse).toBeNull();
   });
 });

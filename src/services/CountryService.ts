@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import { ContinentTypes } from '../models/Continent';
 
 const CountryType = {
@@ -243,6 +241,10 @@ const Countries = [
 class CountryService {
   public static getAllCountries(): {} {
     return CountryType;
+  }
+
+  public static getAllCountriesData(): {} {
+    return Countries;
   }
 }
 

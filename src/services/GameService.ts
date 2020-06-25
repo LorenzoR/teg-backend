@@ -1,19 +1,6 @@
-/* eslint-disable no-param-reassign */
-// import { DynamoDB } from 'aws-sdk';
-import _ from 'lodash';
-
 import Game from '../models/Game';
-import { Player } from '../models/Player';
-// import { CountryType } from '../models/Country';
 import Country from '../models/Country';
 import { RoundType } from '../models/Round';
-
-import DealService from './DealService';
-import CountryService from './CountryService';
-import MissionService from './MissionService';
-
-import { ContinentTypes } from '../models/Continent';
-import CountryCard from '../models/CountryCard';
 
 interface Repository {
   put: any;
@@ -29,43 +16,16 @@ const GameStatusType = {
   FINISHED: 'finished',
 };
 
-const ContinentBonus = {
-  AFRICA: 3,
-  EUROPE: 5,
-  SOUTH_AMERICA: 3,
-  NORTH_AMERICA: 5,
-  OCEANIA: 2,
-  ASIA: 7,
-};
-
-const FIRST_ROUND_TROOPS = 5;
-const SECOND_ROUND_TROOPS = 3;
-
-// TODO. Don't hard-code values
-const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
-
 class GameService {
   private repository!: Repository;
 
-  private gameRepository!: Repository;
-
-  // private GAMES_TABLE_NAME = process.env.GAMES_TABLE || 'local-teg-games';
-  private GAMES_TABLE_NAME = 'local-teg-games';
+  private GAMES_TABLE_NAME = process.env.GAMES_TABLE || 'local-teg-games';
+  // private GAMES_TABLE_NAME = 'local-teg-games';
 
   // private dealService!: DealService;
 
   constructor(repository: any) {
     this.repository = repository;
-    console.log('GAMES_TABLE_NAME', this.GAMES_TABLE_NAME);
-    // this.dealService = dealService;
-    /*
-    this.repository = new DynamoDB.DocumentClient({
-      region: 'localhost',
-      endpoint: 'http://localhost:8000',
-      accessKeyId: 'DEFAULT_ACCESS_KEY', // needed if you don't have aws credentials at all in env
-      secretAccessKey: 'DEFAULT_SECRET', // needed if you don't have aws credentials at all in env
-    });
-    */
   }
 
   public async newGame(UUID: string): Promise<Game | null> {
@@ -272,136 +232,6 @@ class GameService {
     } catch (error) {
       console.error(error);
       return null;
-    }
-  }
-
-  /* ********************** */
-  /* For debugging purposes */
-  /* ********************** */
-  public async assignCountryToPlayer(
-    UUID: string,
-    player: Player,
-    countryKey: string,
-  ): Promise<any> {
-    const game = await this.getGame(UUID);
-
-    if (!game) {
-      throw new Error(`No game with UUID ${UUID}`);
-    }
-
-    // Assign country to player
-    game.countries[countryKey].state.player = player;
-
-    try {
-      const updateExpression = 'set countries = :c';
-      const expressionAttributeValues = {
-        ':c': game.countries,
-      };
-
-      const response = await this.repository.update(
-        this.GAMES_TABLE_NAME,
-        { UUID },
-        updateExpression,
-        expressionAttributeValues,
-      );
-
-      if (response) {
-        return response;
-      }
-
-      // TODO. Handle error
-      return false;
-    } catch (error) {
-      console.log(error);
-      return false;
-    }
-  }
-
-  public async addCountryCardToPlayer(
-    UUID: string,
-    playerColor: string,
-    countryCard: string,
-  ): Promise<any> {
-    const game = await this.getGame(UUID);
-
-    if (!game) {
-      throw new Error(`No game with UUID ${UUID}`);
-    }
-
-    // Get a card
-    const { countryCards } = game;
-    const card = _.find(countryCards, (obj) => obj.country === countryCard);
-    _.remove(countryCards, (obj) => obj.country === countryCard);
-
-    // Assign card to player
-    const player = _.find(game.players, (obj) => obj.color === playerColor);
-    player.cards.push(card);
-
-    try {
-      const updateExpression = 'set countries = :c, players = :p, countryCards = :cc';
-      const expressionAttributeValues = {
-        ':c': game.countries,
-        ':cc': countryCards,
-        ':p': game.players,
-      };
-
-      const response = await this.repository.update(
-        this.GAMES_TABLE_NAME,
-        { UUID },
-        updateExpression,
-        expressionAttributeValues,
-      );
-
-      if (response) {
-        return response;
-      }
-
-      // TODO. Handle error
-      return false;
-    } catch (error) {
-      console.log(error);
-      return false;
-    }
-  }
-
-  public async setRoundType(UUID: string, roundType: string, playerColor = null): Promise<any> {
-    const game = await this.getGame(UUID);
-
-    if (!game) {
-      throw new Error(`No game with UUID ${UUID}`);
-    }
-
-    // Set round type
-    game.round.type = roundType;
-
-    if (playerColor) {
-      // Get index
-      const playerIndex = _.findIndex(game.players, (obj) => obj.color === playerColor);
-      game.round.playerIndex = playerIndex;
-    }
-
-    try {
-      const updateExpression = 'set round = :r';
-      const expressionAttributeValues = {
-        ':r': game.round,
-      };
-
-      const response = await this.repository.update(
-        this.GAMES_TABLE_NAME,
-        { UUID },
-        updateExpression,
-        expressionAttributeValues,
-      );
-
-      if (response) {
-        return response;
-      }
-
-      // TODO. Handle error
-      return false;
-    } catch (error) {
-      console.log(error);
-      return false;
     }
   }
 }
