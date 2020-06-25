@@ -15,6 +15,6 @@ install:
   - npm install
   - sls dynamodb install
 script:
-  - sls dynamodb start --migrate --stage dev & sleep 10 && npm run coveralls
+  - sls dynamodb start --migrate --stage local & sleep 10 && npm run coveralls
 after_success:
   - serverless deploy --stage test
