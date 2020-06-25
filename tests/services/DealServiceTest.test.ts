@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/extensions
+import _ from 'lodash';
 import DealService from '../../src/services/DealService';
 
 describe('deal service', () => {
@@ -12,7 +12,9 @@ describe('deal service', () => {
 
     const countriesAndMissions = DealService.dealCountriesAndMissions(players);
 
-    expect(countriesAndMissions.countries.INDIA.state.troops).toBe(1);
+    const country = _.find(countriesAndMissions.countries, { countryKey: 'INDIA' });
+
+    expect(country.state.troops).toBe(1);
     // expect(countriesAndMissions.missions).toHaveLength(players.length);
   });
 });

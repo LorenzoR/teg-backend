@@ -6,8 +6,8 @@ service:
 
 custom:
   stage: ${opt:stage, self:provider.stage}
-  GAMES_TABLE: teg-games-${self:custom.stage}
-  CONNECTION_IDS_TABLE: connection_ids-${self:custom.stage}
+  GAMES_TABLE: ${self:custom.stage}-teg-games
+  CONNECTION_IDS_TABLE: ${self:custom.stage}-connection-ids
   webpack:
     webpackConfig: ./webpack.config.js
     includeModules: true
@@ -54,6 +54,16 @@ provider:
         - "Fn::GetAtt": [ ConnectionIdsTable, Arn ]
 
 functions:
+# API Gateway
+  userRegistration:
+    handler: src/handler.newGameHandler
+    events:
+      - http:
+          path: new-game
+          method: post
+          cors: true
+
+# Web sockets
   connectHandler:
     handler: src/handler.connectHandler
     events:
@@ -158,13 +168,13 @@ resources: # CloudFormation template syntax
         AttributeDefinitions:
           - AttributeName: connectionId
             AttributeType: S
-          - AttributeName: gameId
-            AttributeType: S
+          #- AttributeName: gameId
+          #  AttributeType: S
         KeySchema:
           - AttributeName: connectionId
             KeyType: HASH
-          - AttributeName: gameId
-            KeyType: RANGE
+          #- AttributeName: gameId
+          #  KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1

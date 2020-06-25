@@ -4,22 +4,31 @@
   "description": "Serverless webpack example using Typescript",
   "main": "handler.js",
   "scripts": {
-    "offline": "nodemon -e js,ts,yml --ignore node_modules --exec serverless offline start",
-    "test": "NODE_ENV=test ./node_modules/.bin/jest --ci --verbose --coverage --forceExit --detectOpenHandles",
-    "debug-test": "node --inspect-brk=9230 ./node_modules/.bin/jest -i",
+    "offline2": "nodemon -e js,ts,yml --ignore node_modules --exec serverless offline start",
+    "offline": "serverless offline --stage local",
+    "test": "NODE_ENV=local ./node_modules/.bin/jest --ci --verbose --coverage --forceExit --detectOpenHandles",
+    "test2": "sls dynamodb start --migrate --stage local & sleep 10 && npm run test && kill -9 `lsof -t -i:8000`",
+    "debug-test": "node --inspect-brk=9230 ./node_modules/.bin/jest --forceExit --detectOpenHandles",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "buildtest": "tsc --noEmit",
     "dynamodb": "sls dynamodb start --migrate --stage local",
     "coveralls": "npm run test && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
   },
   "dependencies": {
+    "@aws/dynamodb-data-mapper": "^0.7.3",
+    "@aws/dynamodb-data-mapper-annotations": "^0.7.3",
     "aws-lambda": "^1.0.6",
     "aws-sdk": "^2.681.0",
     "lodash": "^4.17.15",
-    "source-map-support": "^0.5.10"
+    "reflect-metadata": "^0.1.13",
+    "source-map-support": "^0.5.10",
+    "uuid": "^8.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.9.6",
+    "@babel/plugin-proposal-class-properties": "^7.10.1",
+    "@babel/plugin-proposal-decorators": "^7.10.1",
+    "@babel/plugin-proposal-optional-chaining": "^7.10.1",
     "@babel/preset-env": "^7.9.6",
     "@babel/preset-typescript": "^7.9.0",
     "@types/aws-lambda": "^8.10.17",

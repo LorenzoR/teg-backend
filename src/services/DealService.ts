@@ -1,6 +1,7 @@
 import _ from 'lodash';
 
-import { Player } from '../models/Player';
+import Player from '../models/Player';
+import Country from '../models/Country';
 
 import CountryService from './CountryService';
 import MissionService from './MissionService';
@@ -12,11 +13,11 @@ class DealService {
     const numberOfPlayers = players.length;
     const countryKeys = CountryService.getAllCountries();
     const randomCountryKeys = _.shuffle(Object.keys(countryKeys));
-    const countries = { };
+    const countries: Country[] = [];
     let counter = 0;
 
     randomCountryKeys.forEach((countryKey) => {
-      const country = {
+      const countryAttributes = {
         countryKey,
         name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
         // continent: CountryService.getContinent(countryKey),
@@ -27,7 +28,9 @@ class DealService {
         },
       };
 
-      countries[countryKey] = country;
+      const country = Object.assign(new Country(), countryAttributes);
+
+      countries.push(country);
 
       counter += 1;
     });

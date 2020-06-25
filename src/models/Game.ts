@@ -1,24 +1,25 @@
 /* eslint-disable no-param-reassign */
 import _ from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  attribute,
+  hashKey,
+  table,
+} from '@aws/dynamodb-data-mapper-annotations';
 
-import { Player } from './Player';
-// import { Country } from './Country';
-import { CountryCardType } from './CountryCard';
-import { RoundType } from './Round';
-import { CountryType } from './Country';
-import { ContinentTypes } from './Continent';
+import { embed } from '@aws/dynamodb-data-mapper';
+
+import Player from './Player';
+import Country from './Country';
 import CountryCard from './CountryCard';
+import Round, { RoundType } from './Round';
+import EventsLog from './EventsLog';
+import { ContinentTypes } from './Continent';
 
-import CountryService from '../services/CountryService';
+
 import MissionService from '../services/MissionService';
 import DiceService from '../services/DiceService';
 import DealService from '../services/DealService';
-
-interface EventsLogType {
-  type: string;
-  text: string;
-  time: number;
-}
 
 interface RoundType {
   count: number;
@@ -31,10 +32,10 @@ export interface GameType {
   gameStatus: string;
   guests?: Player [];
   players?: Player [];
-  countries?: { any };
+  countries?: Country [];
   round: RoundType;
-  countryCards: CountryCardType[];
-  eventsLog?: EventsLogType[];
+  countryCards: CountryCard[];
+  eventsLog?: EventsLog[];
   winner?: string;
 }
 
@@ -61,28 +62,43 @@ const SECOND_ROUND_TROOPS = 3;
 // TODO. Don't hard-code values
 const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
 
+// @table('local-teg-games')
+@table('teg-games')
 class Game {
-  public UUID: string;
+  @hashKey({
+    type: 'String',
+  })
+  public UUID?: string;
 
-  public guests?: Player [];
+  @attribute({ memberType: embed(Player) })
+  public guests: Player [] = [];
 
-  public players?: Player [];
+  // @attribute({ memberType: embed(Player) })
+  @attribute({ memberType: embed(Player) })
+  public players?: Player [] = [];
 
-  public countries?: { any };
+  @attribute({ memberType: embed(Country) })
+  public countries?: Country [] = [];
 
-  public round: RoundType;
+  @attribute({ memberType: embed(Round) })
+  public round: Round;
 
-  public eventsLog?: EventsLogType[];
+  @attribute({ memberType: embed(EventsLog) })
+  public eventsLog?: EventsLog[] = [];
 
-  public countryCards?: CountryCardType[];
+  @attribute({ memberType: embed(CountryCard) })
+  public countryCards?: CountryCard[];
 
+  @attribute()
   public gameStatus: string;
 
-  public winner: string | null;
+  @attribute()
+  public winner?: string;
 
   private diceService!: DiceService;
 
-  constructor(game: GameType) {
+  public constructor() {
+    /*
     if (game) {
       this.UUID = game.UUID;
       this.guests = game.guests;
@@ -94,8 +110,13 @@ class Game {
       this.countryCards = game.countryCards;
       this.winner = null;
     }
+    */
 
     this.diceService = new DiceService();
+  }
+
+  public static generateNewGameUUID(): string {
+    return uuidv4();
   }
 
   public getGame(): GameType {
@@ -110,6 +131,24 @@ class Game {
       countryCards: this.countryCards,
       winner: this.winner,
     };
+  }
+
+  public initGame(): Game {
+    // Set first round
+    const round = {
+      count: 1,
+      type: RoundType.FIRST_ADD_TROOPS,
+      playerIndex: 0,
+    };
+
+    // Set status to STARTED
+    const gameStatus = GameStatusType.WAITING_PLAYERS;
+
+    // Return game;
+    this.round = round;
+    this.gameStatus = gameStatus;
+
+    return this;
   }
 
   // Start a game
@@ -140,11 +179,11 @@ class Game {
     this.guests = [];
 
     // Add event
-    this.eventsLog.unshift({
+    this.eventsLog = [{
       time: Game.getCurrentTimestamp(),
       text: 'Game started',
       type: 'gameStarted',
-    });
+    }];
 
     // Return game;
     this.countries = countriesAndMissions.countries;
@@ -172,10 +211,13 @@ class Game {
     }
 
     const guest = {
-      id: guestId, isAdmin: false, name: null, color: null,
+      id: guestId,
+      isAdmin: false,
+      playerStatus: 'online',
     };
 
-    if (!this.guests) {
+    // if ((!this.players || this.players.length === 0) && (!this.guests || this.guests.length === 0)) {
+    if (!this.getAdmin()) {
       this.guests = [];
       guest.isAdmin = true;
     }
@@ -203,7 +245,7 @@ class Game {
   }
 
   // Add player to game
-  public addPlayer(player: Player): any {
+  public addPlayer(player: Player): Game {
     // Check if there is a guest with that ID and if it was admin
     let isAdmin = false;
     if (this.guests) {
@@ -234,17 +276,13 @@ class Game {
     players.push(newPlayer);
 
     // Add event
-    this.eventsLog.unshift({
-      time: Game.getCurrentTimestamp(),
-      text: `Player ${player.name} (${player.color}) joined game`,
-      type: 'playerAdded',
-    });
+    this.addToEventsLog(`Player ${player.name} (${player.color}) joined game`, 'playerAdded');
 
     return this;
   }
 
   // Remove a player
-  public removePlayer(playerId: string): any {
+  public removePlayer(playerId: string): Player {
     let removedPlayer = null;
 
     if (!this.players) {
@@ -263,9 +301,19 @@ class Game {
       removedPlayer = _.remove(this.players, (obj) => obj.id === playerId);
     }
 
-    console.log('Removed player', removedPlayer);
-
     return removedPlayer && removedPlayer.length ? removedPlayer[0] : removedPlayer;
+  }
+
+  public getAdmin(): Player {
+    // Look in players
+    const fromPlayers = _.find(this.players, { isAdmin: true });
+
+    if (fromPlayers) {
+      return fromPlayers;
+    }
+
+    // Look in guests
+    return _.find(this.guests, { isAdmin: true });
   }
 
   // Re-connect a player
@@ -290,7 +338,7 @@ class Game {
   }
 
   // Add troops to a country
-  public addTroops(playerId: string, country: string, amount: number): CountryType {
+  public addTroops(playerId: string, countryKey: string, amount: number): Country {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -303,53 +351,49 @@ class Game {
 
     // Check if it's that player's round
     if (!this.isPlayerTurn(playerColor)) {
-      console.error(`Not player ${playerColor} turn`);
-      return null;
+      throw new Error(`Not player ${playerColor} turn`);
     }
 
     if (![RoundType.ADD_TROOPS, RoundType.FIRST_ADD_TROOPS, RoundType.SECOND_ADD_TROOPS].includes(this.round.type)) {
-      console.error(`Can not add troops in round ${this.round.type}.`);
-      return null;
+      throw new Error(`Can not add troops in round ${this.round.type}.`);
     }
 
-    if (!this.countries || !this.countries[country]) {
+    // Get country
+    const country = _.find(this.countries, { countryKey });
+
+    if (!this.countries || !country) {
       // TODO. Handle error
-      console.error(`Country ${country} not found`);
-      return null;
+      throw new Error(`Country ${country.countryKey} not found`);
     }
 
-    if (this.countries[country].state.player.color !== playerColor) {
-      console.error(`Country ${country} does not belong to ${playerColor}`);
-      return null;
+    if (country.state.player.color !== playerColor) {
+      throw new Error(`Country ${country.countryKey} does not belong to ${playerColor}`);
     }
 
     if (!player) {
-      console.error(`Player ${playerColor} not found`);
-      return null;
+      throw new Error(`Player ${playerColor} not found`);
     }
 
     // If player has continent bonus, try to use those troops first
-    const continent = CountryService.getContinent(country);
+    const continent = country.getContinent();
 
     if (amount > 0) {
       // Adding troops
       if (player.troopsToAdd[continent] >= amount) {
         // Continent bonus
         player.troopsToAdd[continent] -= amount;
-        this.countries[country].state.newTroops += amount;
+        country.state.newTroops += amount;
       } else if (player.troopsToAdd.free >= amount) {
         // Check if player has free troops
         player.troopsToAdd.free -= amount;
-        this.countries[country].state.newTroops += amount;
+        country.state.newTroops += amount;
       } else {
-        console.error(`Can not add more than ${player.troopsToAdd.free} troops`);
-        return null;
+        throw new Error(`Can not add more than ${player.troopsToAdd.free} troops`);
       }
     } else if (amount < 0) {
       // Removing troops
-      if (this.countries[country].state.newTroops < 1) {
-        console.error(`Can not remove more than ${this.countries[country].state.troops} from ${country}`);
-        return null;
+      if (country.state.newTroops < 1) {
+        throw new Error(`Can not remove more than ${country.state.troops} from ${country.countryKey}`);
       }
 
       // If player had continent bonus, put troops back there
@@ -360,27 +404,36 @@ class Game {
         player.troopsToAdd.free -= amount;
       }
 
-      this.countries[country].state.newTroops += amount;
+      country.state.newTroops += amount;
     }
 
     // Add event
     let eventText = null;
 
     if (amount > 0) {
-      eventText = `Player ${playerColor} added ${amount} troops to ${country}`;
+      eventText = `Player ${playerColor} added ${amount} troops to ${country.countryKey}`;
     } else {
-      eventText = `Player ${playerColor} removed ${amount} troops from ${country}`;
+      eventText = `Player ${playerColor} removed ${amount} troops from ${country.countryKey}`;
     }
 
+    /*
     this.eventsLog.unshift({
       time: Game.getCurrentTimestamp(),
       text: eventText,
       type: 'troopsAdded',
     });
+    */
+    this.addToEventsLog(eventText, 'troopsAdded');
 
-    console.log(eventText);
+    return country;
+  }
 
-    return this.countries[country];
+  private addToEventsLog(text: string, type: string): void {
+    this.eventsLog.unshift({
+      time: Game.getCurrentTimestamp(),
+      text,
+      type,
+    });
   }
 
   // Finish player turn
@@ -401,7 +454,6 @@ class Game {
 
     // Game finished!
     if (MissionService.missionCompleted(mission, currentPlayerCountries)) {
-      console.log('Mission completed!');
       this.winner = playerColor;
       this.gameStatus = GameStatusType.FINISHED;
 
@@ -462,13 +514,11 @@ class Game {
     }
 
     // Add recently added troops to troops
-    if (true || round.type === RoundType.ADD_TROOPS) {
-      Object.keys(countries).forEach((countryKey) => {
-        const country = countries[countryKey];
-        country.state.troops += country.state.newTroops;
-        country.state.newTroops = 0;
-      });
-    }
+    // if (round.type === RoundType.ADD_TROOPS) {
+    countries.forEach((country) => {
+      country.state.troops += country.state.newTroops;
+      country.state.newTroops = 0;
+    });
 
     return this;
   }
@@ -494,16 +544,9 @@ class Game {
       throw new Error(`Not player ${playerColor} turn`);
     }
 
-    // TODO. check if neighbors
-    if (false) {
-      throw new Error(
-        `Country ${attackerKey} is not a neighbour of ${defenderKey}`,
-      );
-    }
-
     // Get countries
-    const attacker = this.countries[attackerKey];
-    const defender = this.countries[defenderKey];
+    const attacker = _.find(this.countries, { countryKey: attackerKey });
+    const defender = _.find(this.countries, { countryKey: defenderKey });
 
     if (!attacker) {
       throw new Error(`Country ${attackerKey} not found`);
@@ -513,14 +556,26 @@ class Game {
       throw new Error(`Country ${defenderKey} not found`);
     }
 
-    let countryConquered = false;
-
-    if (attacker.state.troops <= 1) {
-      throw new Error('Attacker needs at least 2 troops to attack');
+    // Check if neighbors
+    if (!attacker.areNeighbours(defender)) {
+      throw new Error(
+        `Country ${attackerKey} is not a neighbour of ${defenderKey}`,
+      );
     }
+
+    // Countries can't belong to same player
+    if (attacker.state.player.color === defender.state.player.color) {
+      throw new Error(`${attackerKey} and ${defenderKey} belong to ${playerColor}`);
+    }
+
+    let countryConquered = false;
 
     if (attacker.state.player.color !== playerColor) {
       throw new Error(`Country ${attackerKey} does not belong to ${playerColor}`);
+    }
+
+    if (attacker.state.troops <= 1) {
+      throw new Error('Attacker needs at least 2 troops to attack');
     }
 
     if (this.round.type !== RoundType.ATTACK) {
@@ -528,11 +583,7 @@ class Game {
     }
 
     // Add event
-    this.eventsLog.unshift({
-      time: Game.getCurrentTimestamp(),
-      text: `Player ${playerColor} attacks ${defenderKey} from ${attackerKey}`,
-      type: 'countryAttacked',
-    });
+    this.addToEventsLog(`Player ${playerColor} attacks ${defenderKey} from ${attackerKey}`, 'countryAttacked');
 
     // Max 3 dices per attack
     const numberOfAttackerDices = Math.min(
@@ -571,29 +622,21 @@ class Game {
     });
 
     // Add event
-    this.eventsLog.unshift({
-      time: Game.getCurrentTimestamp(),
-      text: `${defenderKey} lost ${defenderTroopsLost} troops and ${attackerKey} lost ${attackerTroopsLost} troops`,
-      type: 'countryAttacked',
-    });
+    this.addToEventsLog(
+      `${defenderKey} lost ${defenderTroopsLost} troops and ${attackerKey} lost ${attackerTroopsLost} troops`,
+      'countryAttacked',
+    );
 
     // Attacker conquered defender
     if (defender.state.troops === 0) {
-      console.log('Conquered!');
       const defenderColor = defender.state.player.color;
       defender.state.player = attacker.state.player;
 
-      /*
-      // Get attacker player
-      const player = _.find(this.players, (obj) => obj.color === playerColor);
-      */
-
       // Add event
-      this.eventsLog.unshift({
-        time: Game.getCurrentTimestamp(),
-        text: `Player ${playerColor} conquered ${defenderKey}`,
-        type: 'troopsMoved',
-      });
+      this.addToEventsLog(
+        `Player ${playerColor} conquered ${defenderKey}`,
+        'troopsMoved',
+      );
 
       // Check if defender was killed
       const defenderCountries = Game.getCountriesByPlayer(this.countries, defenderColor);
@@ -603,45 +646,46 @@ class Game {
         console.log(`${defenderColor} was killed by ${playerColor}`);
 
         // Add event
-        this.eventsLog.unshift({
-          time: Game.getCurrentTimestamp(),
-          text: `${defenderColor} was killed by ${playerColor}`,
-          type: 'countryAttacked',
-        });
+        this.addToEventsLog(
+          `${defenderColor} was killed by ${playerColor}`,
+          'countryAttacked',
+        );
 
         // Check if attacker mission was to destroy defender
         if (player.mission.destroy) {
+          console.log(`Player mission is to destory ${player.mission.destroy}`);
           if (player.mission.destroy === defenderColor) {
             // Attacker won
             this.gameStatus = 'finished';
             this.winner = playerColor;
 
             // Add event
-            this.eventsLog.unshift({
-              time: Game.getCurrentTimestamp(),
-              text: `${playerColor} won`,
-              type: 'countryAttacked',
-            });
+            this.addToEventsLog(
+              `${playerColor} won`,
+              'countryAttacked',
+            );
 
             return this;
           }
 
-          // If player's mission color is not playing, check next player in turn order
-          if (!_.find(this.players, (obj) => obj.color === player.mission.destroy)) {
+          // If player's mission color is not playing or mission is player's color, check next player in turn order
+          if (!_.find(this.players, (obj) => obj.color === player.mission.destroy)
+              || playerColor === player.mission.destroy) {
             const playerIndex = _.findIndex(this.players, (obj) => obj.color === playerColor);
             const nextIndex = (playerIndex + 1) % this.players.length;
 
-            if (player.mission.destroy === this.players[nextIndex].color) {
+            console.log(`Mission changes to destroy ${this.players[nextIndex].color}`);
+
+            if (this.players[nextIndex].color === defenderColor) {
               // Attacker won
               this.gameStatus = 'finished';
               this.winner = playerColor;
 
               // Add event
-              this.eventsLog.unshift({
-                time: Game.getCurrentTimestamp(),
-                text: `${playerColor} won`,
-                type: 'countryAttacked',
-              });
+              this.addToEventsLog(
+                `${playerColor} won`,
+                'countryAttacked',
+              );
 
               return this;
             }
@@ -666,11 +710,10 @@ class Game {
 
         if (cardsFromDefenderCount) {
           // Add event
-          this.eventsLog.unshift({
-            time: Game.getCurrentTimestamp(),
-            text: `${playerColor} got ${cardsFromDefenderCount} cards from ${defenderColor}`,
-            type: 'countryAttacked',
-          });
+          this.addToEventsLog(
+            `${playerColor} got ${cardsFromDefenderCount} cards from ${defenderColor}`,
+            'countryAttacked',
+          );
         }
       }
 
@@ -680,11 +723,10 @@ class Game {
       defender.state.troops = troopsToMove;
 
       // Add event
-      this.eventsLog.unshift({
-        time: Game.getCurrentTimestamp(),
-        text: `Player ${playerColor} moved ${troopsToMove} troops from ${attacker.name} to ${defender.name}`,
-        type: 'troopsMoved',
-      });
+      this.addToEventsLog(
+        `Player ${playerColor} moved ${troopsToMove} troops from ${attacker.name} to ${defender.name}`,
+        'troopsMoved',
+      );
 
       // Player can get a card
       player.canGetCard = true;
@@ -707,13 +749,6 @@ class Game {
       throw new Error('Source and target can not be the same');
     }
 
-    // TODO. check if neighbors
-    if (false) {
-      throw new Error(
-        `Country ${sourceKey} is not a neighbour of ${targetKey}`,
-      );
-    }
-
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -730,8 +765,23 @@ class Game {
     }
 
     // Get countries
-    const source = this.countries[sourceKey];
-    const target = this.countries[targetKey];
+    const source: Country = _.find(this.countries, { countryKey: sourceKey });
+    const target: Country = _.find(this.countries, { countryKey: targetKey });
+
+    if (!source) {
+      throw new Error(`Country ${sourceKey} not found`);
+    }
+
+    if (!target) {
+      throw new Error(`Country ${targetKey} not found`);
+    }
+
+    // Check if neighbors
+    if (!source.areNeighbours(target)) {
+      throw new Error(
+        `Country ${sourceKey} is not a neighbour of ${targetKey}`,
+      );
+    }
 
     // Validations
     if (source.state.player.color !== playerColor) {
@@ -763,11 +813,7 @@ class Game {
     }
 
     // Add event
-    this.eventsLog.unshift({
-      time: Game.getCurrentTimestamp(),
-      text: `Player ${playerColor} moved ${count} troops from ${source.name} to ${target.name}`,
-      type: 'troopsMoved',
-    });
+    this.addToEventsLog(`Player ${playerColor} moved ${count} troops from ${source.name} to ${target.name}`, 'troopsMoved');
 
     return {
       source,
@@ -779,7 +825,7 @@ class Game {
   }
 
   // Get one country card from deck
-  public getCountryCard(playerId: string): any {
+  public getCountryCard(playerId: string): { player: Player; countryCards: CountryCard[]; players: Player[]; round: Round; newCard: CountryCard } {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -809,11 +855,12 @@ class Game {
       countryCards: this.countryCards,
       players: this.players,
       round: this.round,
+      newCard,
     };
   }
 
   // Exchange one country card
-  public exchangeCard(playerId: string, countryCard: string): any {
+  public exchangeCard(playerId: string, countryCard: string): { countries: Country[]; players: Player[] } {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -865,7 +912,7 @@ class Game {
   }
 
   // Exchange three cards
-  public exchangeCards(playerId: string, countryCards: string[]): any {
+  public exchangeCards(playerId: string, countryCards: string[]): { players: Player[]; countryCards: CountryCard[] } {
     // Get player by ID
     const player = this.getPlayerById(playerId);
 
@@ -930,6 +977,13 @@ class Game {
     return true;
   }
 
+  public getOnlinePlayersAndGuests(): Player[] {
+    return _.concat(
+      _.filter(this.players, { playerStatus: 'online' }),
+      _.filter(this.guests, { playerStatus: 'online' }),
+    );
+  }
+
   public getPlayerByColor(playerColor: string): Player {
     if (!this.players || this.players.length === 0) {
       return null;
@@ -939,20 +993,34 @@ class Game {
     return _.find(this.players, (obj) => obj.color === playerColor);
   }
 
-  private getPlayerById(playerId: string): Player {
+  public getPlayerById(playerId: string): Player {
     if (!this.players || this.players.length === 0) {
       return null;
     }
 
-    // Find by color
+    // Find by ID
     return _.find(this.players, (obj) => obj.id === playerId);
+  }
+
+  public getGuestById(playerId: string): Player {
+    if (!this.guests || this.guests.length === 0) {
+      return null;
+    }
+
+    // Find by ID
+    return _.find(this.guests, { id: playerId });
+  }
+
+  // Get player or guest by ID
+  public getPlayerOrGuestById(playerId: string): Player {
+    return this.getPlayerById(playerId) || this.getGuestById(playerId);
   }
 
   private static getCurrentTimestamp(): number {
     return new Date().getTime();
   }
 
-  private static getCountriesByPlayer(countries: {}, playerColor: string): any[] {
+  public static getCountriesByPlayer(countries: {}, playerColor: string): Country[] {
     const response = [];
 
     Object.keys(countries).forEach((countryKey) => {
@@ -965,7 +1033,7 @@ class Game {
     return response;
   }
 
-  private static calculateTroopsToAdd(players: Player[], countries: {}): { } {
+  public static calculateTroopsToAdd(players: Player[], countries: {}): { } {
     const troopsPerPlayer = { };
     const countriesPerPlayer = { };
     const initialCount = { free: 0, total: 0 };
@@ -985,12 +1053,11 @@ class Game {
 
     // Count countries per continent for each player
     _.forIn(countries, (value, key) => {
-      const continent = CountryService.getContinent(key);
+      const country = countries[key];
+      const continent = country.getContinent();
       countriesPerPlayer[value.state.player.color].free += 1;
       countriesPerPlayer[value.state.player.color][continent] += 1;
     });
-
-    console.log('countriesPerPlayer', countriesPerPlayer);
 
     _.forIn(countriesPerPlayer, (value, key) => {
       troopsPerPlayer[key].free = Math.floor(value.free / 2);
@@ -1000,31 +1067,43 @@ class Game {
       if (countriesPerPlayer[key][ContinentTypes.AFRICA] && countriesPerPlayer[key][ContinentTypes.AFRICA] === 6) {
         troopsPerPlayer[key][ContinentTypes.AFRICA] = ContinentBonus.AFRICA;
         troopsPerPlayer[key].total += ContinentBonus.AFRICA;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.AFRICA] = null;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.ASIA] && countriesPerPlayer[key][ContinentTypes.ASIA] === 15) {
         troopsPerPlayer[key][ContinentTypes.ASIA] = ContinentBonus.ASIA;
         troopsPerPlayer[key].total += ContinentBonus.ASIA;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.ASIA] = null;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.EUROPE] && countriesPerPlayer[key][ContinentTypes.EUROPE] === 9) {
         troopsPerPlayer[key][ContinentTypes.EUROPE] = ContinentBonus.EUROPE;
         troopsPerPlayer[key].total += ContinentBonus.EUROPE;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.EUROPE] = null;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.NORTH_AMERICA] === 10) {
         troopsPerPlayer[key][ContinentTypes.NORTH_AMERICA] = ContinentBonus.NORTH_AMERICA;
         troopsPerPlayer[key].total += ContinentBonus.NORTH_AMERICA;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.NORTH_AMERICA] = null;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.OCEANIA] && countriesPerPlayer[key][ContinentTypes.OCEANIA] === 4) {
         troopsPerPlayer[key][ContinentTypes.OCEANIA] = ContinentBonus.OCEANIA;
         troopsPerPlayer[key].total += ContinentBonus.OCEANIA;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.OCEANIA] = null;
       }
 
       if (countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] && countriesPerPlayer[key][ContinentTypes.SOUTH_AMERICA] === 6) {
         troopsPerPlayer[key][ContinentTypes.SOUTH_AMERICA] = ContinentBonus.SOUTH_AMERICA;
         troopsPerPlayer[key].total += ContinentBonus.SOUTH_AMERICA;
+      } else {
+        troopsPerPlayer[key][ContinentTypes.SOUTH_AMERICA] = null;
       }
     });
 
