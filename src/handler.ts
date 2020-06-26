@@ -217,7 +217,6 @@ export const connectHandler: APIGatewayProxyHandler = async (event, _context) =>
     }
     console.log(`Got game ID ${gameId}`);
 
-
     // Add guest
     game.addGuest(event.requestContext.connectionId);
     console.log(`Added guest ${event.requestContext.connectionId} to game ID ${gameId}`);
@@ -322,7 +321,6 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
         await gameRepository.update(game);
         console.log('Game updated');
       }
-
 
       const payloadBody = { isAdmin };
       payload = { action: 'guestDisconnected', body: payloadBody };
