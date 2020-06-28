@@ -108,8 +108,8 @@ const Neighbours = {
   BORNEO: ['MALASIA', 'AUSTRALIA'],
   SUMATRA: ['AUSTRALIA', 'INDIA'],
   // Asia
-  INDIA: ['AUSTRALIA', 'MALASIA', 'CHINA', 'IRAN'],
-  MALASIA: ['AUSTRALIA', 'INDIA', 'CHINA'],
+  INDIA: ['MALASIA', 'CHINA', 'IRAN', 'SUMATRA'],
+  MALASIA: ['BORNEO', 'INDIA', 'CHINA'],
   CHINA: [
     'INDIA',
     'MALASIA',

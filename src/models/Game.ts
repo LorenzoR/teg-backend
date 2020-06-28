@@ -275,7 +275,7 @@ class Game {
     players.push(newPlayer);
 
     // Add event
-    this.addToEventsLog(`Player ${player.name} (${player.color}) joined game`, 'playerAdded');
+    this.addToEventsLog(`Player ${player.name} (${player.color}) joined game`, 'playerAdded', 'grey');
 
     return this;
   }
@@ -415,23 +415,17 @@ class Game {
       eventText = `Player ${playerColor} removed ${amount} troops from ${country.countryKey}`;
     }
 
-    /*
-    this.eventsLog.unshift({
-      time: Game.getCurrentTimestamp(),
-      text: eventText,
-      type: 'troopsAdded',
-    });
-    */
-    this.addToEventsLog(eventText, 'troopsAdded');
+    this.addToEventsLog(eventText, 'troopsAdded', playerColor);
 
     return country;
   }
 
-  private addToEventsLog(text: string, type: string): void {
+  private addToEventsLog(text: string, type: string, playerColor: string): void {
     this.eventsLog.unshift({
       time: Game.getCurrentTimestamp(),
       text,
       type,
+      playerColor,
     });
   }
 
@@ -523,7 +517,12 @@ class Game {
   }
 
   // Attack country
-  public attack(playerId: string, attackerKey: string, defenderKey: string, dicesP: { attacker: number[]; defender: number[] } = null): any {
+  public attack(
+    playerId: string,
+    attackerKey: string,
+    defenderKey: string,
+    dicesP: { attacker: number[]; defender: number[] } = null,
+  ): any {
     if (attackerKey === defenderKey) {
       throw new Error('Attacker and defender can not be the same');
     }
@@ -581,9 +580,6 @@ class Game {
       throw new Error(`Can not attack in round ${this.round.type}.`);
     }
 
-    // Add event
-    this.addToEventsLog(`Player ${playerColor} attacks ${defenderKey} from ${attackerKey}`, 'countryAttacked');
-
     // Max 3 dices per attack
     const numberOfAttackerDices = Math.min(
       attacker.state.troops - 1,
@@ -629,9 +625,18 @@ class Game {
     });
 
     // Add event
+    const dicesString = `${dices.attacker.join(' - ')} vs ${dices.defender.join(' - ')}`;
+    this.addToEventsLog(
+      `Player ${playerColor} attacks ${defenderKey} from ${attackerKey} (${dicesString})`,
+      'countryAttacked',
+      playerColor,
+    );
+
+    // Add event
     this.addToEventsLog(
       `${defenderKey} lost ${defenderTroopsLost} troops and ${attackerKey} lost ${attackerTroopsLost} troops`,
       'countryAttacked',
+      playerColor,
     );
 
     // Attacker conquered defender
@@ -643,6 +648,7 @@ class Game {
       this.addToEventsLog(
         `Player ${playerColor} conquered ${defenderKey}`,
         'troopsMoved',
+        playerColor,
       );
 
       // Check if defender was killed
@@ -656,6 +662,7 @@ class Game {
         this.addToEventsLog(
           `${defenderColor} was killed by ${playerColor}`,
           'countryAttacked',
+          playerColor,
         );
 
         // Check if attacker mission was to destroy defender
@@ -670,6 +677,7 @@ class Game {
             this.addToEventsLog(
               `${playerColor} won`,
               'countryAttacked',
+              playerColor,
             );
 
             return this;
@@ -692,6 +700,7 @@ class Game {
               this.addToEventsLog(
                 `${playerColor} won`,
                 'countryAttacked',
+                playerColor,
               );
 
               return this;
@@ -720,6 +729,7 @@ class Game {
           this.addToEventsLog(
             `${playerColor} got ${cardsFromDefenderCount} cards from ${defenderColor}`,
             'countryAttacked',
+            playerColor,
           );
         }
       }
@@ -733,6 +743,7 @@ class Game {
       this.addToEventsLog(
         `Player ${playerColor} moved ${troopsToMove} troops from ${attacker.name} to ${defender.name}`,
         'troopsMoved',
+        playerColor,
       );
 
       // Player can get a card
@@ -820,7 +831,11 @@ class Game {
     }
 
     // Add event
-    this.addToEventsLog(`Player ${playerColor} moved ${count} troops from ${source.name} to ${target.name}`, 'troopsMoved');
+    this.addToEventsLog(
+      `Player ${playerColor} moved ${count} troops from ${source.name} to ${target.name}`,
+      'troopsMoved',
+      playerColor,
+    );
 
     return {
       source,

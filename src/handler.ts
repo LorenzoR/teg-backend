@@ -686,6 +686,12 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
     } catch (error) {
       console.error('finishRoundHandler error', error);
 
+      // Send error message
+      const errorPayload = { action: 'error', body: { errorMsg: error.message } };
+      // Send message to that player
+      setEndpointFromEvent(event);
+      await apiGatewayWebsocketsService.send(playerId, JSON.stringify(errorPayload));
+
       return {
         statusCode: 400,
         body: JSON.stringify(error),
@@ -758,6 +764,12 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
   } catch (error) {
     console.error(error);
 
+    // Send error message
+    const errorPayload = { action: 'error', body: { errorMsg: error.message } };
+    // Send message to that player
+    setEndpointFromEvent(event);
+    await apiGatewayWebsocketsService.send(playerId, JSON.stringify(errorPayload));
+
     return {
       statusCode: 400,
       body: JSON.stringify(error),
@@ -812,6 +824,12 @@ export const attackHandler: APIGatewayProxyHandler = async (event, _context) => 
     };
   } catch (error) {
     console.error(error);
+
+    // Send error message
+    const errorPayload = { action: 'error', body: { errorMsg: error.message } };
+    // Send message to that player
+    setEndpointFromEvent(event);
+    await apiGatewayWebsocketsService.send(playerId, JSON.stringify(errorPayload));
 
     return {
       statusCode: 400,

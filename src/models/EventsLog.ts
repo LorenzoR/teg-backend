@@ -10,6 +10,9 @@ class EventsLog {
   public text: string;
 
   @attribute()
+  public playerColor: string;
+
+  @attribute()
   public time: number;
 }
 
