@@ -182,6 +182,7 @@ class Game {
       time: Game.getCurrentTimestamp(),
       text: 'Game started',
       type: 'gameStarted',
+      playerColor: 'grey',
     }];
 
     // Return game;
