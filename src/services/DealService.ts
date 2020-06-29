@@ -22,7 +22,7 @@ class DealService {
         name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
         // continent: CountryService.getContinent(countryKey),
         state: {
-          player: players[counter % numberOfPlayers],
+          player: { color: players[counter % numberOfPlayers].color },
           troops: 1,
           newTroops: 0, // To keep track of troops added during ADD_TROOPS round
         },

@@ -1,13 +1,14 @@
 import {
   attribute,
 } from '@aws/dynamodb-data-mapper-annotations';
-import { embed } from '@aws/dynamodb-data-mapper';
+// import { embed } from '@aws/dynamodb-data-mapper';
 
-import Player from './Player';
+// import Player from './Player';
 
 class CountryState {
-  @attribute({ memberType: embed(Player) })
-  player: Player;
+  // @attribute({ memberType: embed(Player) })
+  @attribute()
+  player: { color: string };
 
   @attribute()
   troops: number;
