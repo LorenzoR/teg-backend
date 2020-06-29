@@ -28,6 +28,59 @@ const webSocketConnectionRepository = new WebSocketConnectionRepository(process.
 
 const getGameIdFromEvent = (event: APIGatewayProxyEvent): string => event.queryStringParameters.game_id;
 
+const sendGameInfoToEachPlayer = async (game: Game): Promise<boolean> => {
+  // const data = { ...game };
+  const data = [];
+
+  // Get online players
+  const onlinePlayers = game.getOnlinePlayersAndGuests();
+
+  // Mask data so that players don't get other player's details
+  const connectionIds = _.map(onlinePlayers, 'id');
+
+  connectionIds.forEach((connectionId) => {
+    const playerDetails = { ...game };
+    playerDetails.players = JSON.parse(JSON.stringify(playerDetails.players)); // Copy players
+
+    playerDetails.players.forEach((player) => {
+      if (player.id !== connectionId) {
+        // eslint-disable-next-line no-param-reassign
+        player.mission = null;
+      }
+    });
+
+    data.push(JSON.stringify({ action: 'gameStarted', body: playerDetails }));
+  });
+
+  // const response = { action: 'gameStarted', body: data };
+  // const payload = JSON.stringify(response);
+  try {
+    let updateGame = false;
+    const responses = await apiGatewayWebsocketsService.broadcastDifferentData(data, connectionIds);
+
+    // Set player offline if response is false
+    responses.forEach((response) => {
+      if (!response.response) {
+        const player = game.getPlayerById(response.id);
+        if (player) {
+          console.log(`Set player ${player.id} to offline`);
+          player.playerStatus = 'offline';
+          updateGame = true;
+        }
+      }
+    });
+
+    if (updateGame) {
+      await gameRepository.update(game);
+    }
+
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+};
+
 const sendMessageToAllPlayers = async (game: Game, data: {}): Promise<boolean> => {
   // const game = await gameService.getGame(gameId);
   // const game = await gameRepository.getByID(gameId);
@@ -59,9 +112,8 @@ const sendMessageToAllPlayers = async (game: Game, data: {}): Promise<boolean> =
 
   console.log('sending to ', connectionIds);
 
-  let updateGame = false;
-
   try {
+    let updateGame = false;
     const responses = await apiGatewayWebsocketsService.broadcast(data, connectionIds);
 
     // Set player offline if response is false
@@ -629,14 +681,14 @@ export const startGameHandler: APIGatewayProxyHandler = async (event, _context) 
     console.log('Game started!');
 
     // Update game
-    // await gameService.updateGame(game);
     await gameRepository.update(game);
     console.log('Game updated');
 
     const response = { action: 'gameStarted', body: game };
 
     setEndpointFromEvent(event);
-    await sendMessageToAllPlayers(game, JSON.stringify(response));
+    // await sendMessageToAllPlayers(game, JSON.stringify(response));
+    await sendGameInfoToEachPlayer(game);
     console.log('Message sent to all players!');
 
     // Send connection ID to each player

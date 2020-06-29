@@ -57,6 +57,28 @@ class APIGatewayWebsocketsService {
 
     return response;
   }
+
+  public async broadcastDifferentData(data: {}[], connectionIds: string[]): Promise<{ id: string; response: boolean } []> {
+    // Remove duplicates
+    const uniqueConnectionIds = [...new Set(connectionIds)];
+    const promises = [];
+
+    uniqueConnectionIds.forEach((connectionId, index) => {
+      promises.push(this.send(connectionId, data[index]));
+    });
+
+    const promiseResponse = await Promise.all(promises);
+
+    const response: { id: string; response: boolean } [] = [];
+
+    promiseResponse.forEach((aResponse, index) => {
+      response.push({ id: uniqueConnectionIds[index], response: aResponse });
+    });
+
+    console.log('BroadcastDifferentData response', response);
+
+    return response;
+  }
 }
 
 export default APIGatewayWebsocketsService;
