@@ -5,7 +5,7 @@ import Country from '../models/Country';
 
 import CountryService from './CountryService';
 import MissionService from './MissionService';
-import CountryCard from '../models/CountryCard';
+import CountryCard, { CountryCardType } from '../models/CountryCard';
 
 class DealService {
   public static dealCountriesAndMissions(playersParam: Player[]): { countries: any; players: any} {
@@ -58,7 +58,7 @@ class DealService {
     };
   }
 
-  public static dealCountryCards(): [] {
+  public static dealCountryCards(): CountryCardType[] {
     return _.shuffle(CountryCard.getAllCards());
   }
 }

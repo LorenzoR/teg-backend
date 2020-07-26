@@ -84,31 +84,6 @@ class GameService {
     }
   }
 
-  public async updateGame3(game: Game): Promise<Game | null> {
-    // Delete game
-    await this.deleteGame(game.UUID);
-
-    // Insert new game
-    try {
-      const params = {
-        // TableName: this.GAMES_TABLE_NAME,
-        Item: game.getGame(),
-      };
-
-      const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
-
-      if (response) {
-        return response;
-      }
-
-      // TODO. Handle error
-      return null;
-    } catch (error) {
-      console.error('GameService::updateGame()', error);
-      return null;
-    }
-  }
-
   public async updateGame(game: Game): Promise<Game | null> {
     // Update game
     const updateExpression = 'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc, guests = :g, eventsLog = :e, winner = :w';

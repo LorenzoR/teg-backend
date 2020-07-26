@@ -354,7 +354,7 @@ class Country {
 
   public canAttack(target: Country): boolean {
     // Same player
-    if (this.state.player.name === target.state.player.name) {
+    if (this.state.player.color === target.state.player.color) {
       return false;
     }
 

@@ -92,7 +92,7 @@ describe('dynamoDB mapper wrapper service', () => {
 
     const player = game.players[game.round.playerIndex];
 
-    const countryIndex = _.findIndex(game.countries, (obj) => obj.state.player.id === player.id);
+    const countryIndex = _.findIndex(game.countries, (obj) => obj.state.player.color === player.color);
     game.countries[countryIndex] = Object.assign(new Country(), game.countries[countryIndex]);
 
     const response = game.addTroops(player.id, game.countries[countryIndex].countryKey, 1);

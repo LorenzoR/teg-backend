@@ -20,11 +20,13 @@ const ActionTypes = {
 
 let endpoint = 'http://localhost:3001';
 
-const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(endpoint);
+const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(endpoint, process.env.STAGE || 'local');
 
 // const gameRepository = new GameRepository(process.env.STAGE || 'local');
 const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
-const webSocketConnectionRepository = new WebSocketConnectionRepository(process.env.STAGE || 'local');
+const webSocketConnectionRepository = new WebSocketConnectionRepository(
+  process.env.STAGE || 'local',
+);
 
 const getGameIdFromEvent = (event: APIGatewayProxyEvent): string => event.queryStringParameters.game_id;
 
@@ -81,7 +83,7 @@ const sendGameInfoToEachPlayer = async (game: Game): Promise<boolean> => {
   }
 };
 
-const sendMessageToAllPlayers = async (game: Game, data: {}): Promise<boolean> => {
+const sendMessageToAllPlayers = async (game: Game, data: any): Promise<boolean> => {
   // const game = await gameService.getGame(gameId);
   // const game = await gameRepository.getByID(gameId);
 
@@ -184,7 +186,7 @@ const sendConnectionIdToEachPlayer = async (gameId: string): Promise<boolean> =>
   game.players.forEach((player) => {
     const connectionId = player.id;
     const body = { connectionId, color: player.color };
-    const data = { action: 'connectionId', body };
+    const data = { body, action: 'connectionId' };
     promises.push(apiGatewayWebsocketsService.send(connectionId, JSON.stringify(data)));
   });
 
@@ -193,7 +195,7 @@ const sendConnectionIdToEachPlayer = async (gameId: string): Promise<boolean> =>
   return response && response.length === game.players.length;
 };
 
-const setEndpointFromEvent = (event) => {
+const setEndpointFromEvent = (event): void => {
   if (event.requestContext.domainName !== 'localhost') {
     endpoint = `${event.requestContext.domainName}/${event.requestContext.stage}`;
     apiGatewayWebsocketsService.setEndpoint(endpoint);
@@ -201,7 +203,7 @@ const setEndpointFromEvent = (event) => {
   }
 };
 
-export const newGameHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const newGameHandler: APIGatewayProxyHandler = async (event) => {
   const newGameId = Game.generateNewGameUUID();
 
   try {
@@ -229,7 +231,7 @@ export const newGameHandler: APIGatewayProxyHandler = async (event, _context) =>
   }
 };
 
-export const connectHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const connectHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Connect Handler');
 
   const { connectionId } = event.requestContext;
@@ -295,7 +297,7 @@ export const connectHandler: APIGatewayProxyHandler = async (event, _context) =>
   }
 };
 
-export const disconnectHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const disconnectHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Disconnect handler');
 
   const { connectionId } = event.requestContext;
@@ -405,7 +407,7 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event, _context)
   }
 };
 
-export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const joinGameHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Join Game Handler');
   // Add player to game
   const eventBody = JSON.parse(event.body);
@@ -506,7 +508,7 @@ export const joinGameHandler: APIGatewayProxyHandler = async (event, _context) =
   }
 };
 
-export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
   // Add player to game
   const eventBody = JSON.parse(event.body);
 
@@ -556,7 +558,10 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context)
     }
 
     // Send message to that connectionID only
-    const response = { action: 'playersInfo', body: { players: game.players, currentPlayer, gameStatus } };
+    const response = {
+      action: 'playersInfo',
+      body: { currentPlayer, gameStatus, players: game.players },
+    };
     // setEndpointFromEvent(event);
     await apiGatewayWebsocketsService.send(connectionId, JSON.stringify(response));
 
@@ -574,7 +579,7 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event, _context)
   }
 };
 
-export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const reConnectHandler: APIGatewayProxyHandler = async (event) => {
   // Re-connect player to game
   const eventBody = JSON.parse(event.body);
 
@@ -658,7 +663,7 @@ export const reConnectHandler: APIGatewayProxyHandler = async (event, _context) 
   }
 };
 
-export const startGameHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const startGameHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Start Game handler');
 
   const eventBody = JSON.parse(event.body);
@@ -684,7 +689,7 @@ export const startGameHandler: APIGatewayProxyHandler = async (event, _context) 
     await gameRepository.update(game);
     console.log('Game updated');
 
-    const response = { action: 'gameStarted', body: game };
+    // const response = { action: 'gameStarted', body: game };
 
     setEndpointFromEvent(event);
     // await sendMessageToAllPlayers(game, JSON.stringify(response));
@@ -708,7 +713,7 @@ export const startGameHandler: APIGatewayProxyHandler = async (event, _context) 
   }
 };
 
-export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const finishRoundHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Finish round handler');
 
   const eventBody = JSON.parse(event.body);
@@ -776,7 +781,7 @@ export const finishRoundHandler: APIGatewayProxyHandler = async (event, _context
   }
 };
 
-export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const addTroopsHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Add troops handler');
 
   const eventBody = JSON.parse(event.body);
@@ -829,7 +834,7 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event, _context) 
   }
 };
 
-export const attackHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const attackHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Attack handler');
 
   const eventBody = JSON.parse(event.body);
@@ -890,7 +895,7 @@ export const attackHandler: APIGatewayProxyHandler = async (event, _context) => 
   }
 };
 
-export const moveTroopsHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const moveTroopsHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Move Troops handler');
 
   const eventBody = JSON.parse(event.body);
@@ -942,7 +947,7 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event, _context)
   }
 };
 
-export const getCardHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const getCardHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Get card handler');
 
   const eventBody = JSON.parse(event.body);
@@ -1005,7 +1010,7 @@ export const getCardHandler: APIGatewayProxyHandler = async (event, _context) =>
   }
 };
 
-export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Exchange card handler');
 
   const eventBody = JSON.parse(event.body);
@@ -1036,7 +1041,10 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _contex
     await gameRepository.update(game);
     console.log('Game updated');
 
-    const payload = { action: 'cardExchanged', body: { players: response.players, countries: response.countries } };
+    const payload = {
+      action: 'cardExchanged',
+      body: { players: response.players, countries: response.countries },
+    };
 
     // Send message to all player
     setEndpointFromEvent(event);
@@ -1057,7 +1065,7 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event, _contex
   };
 };
 
-export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const exchangeCardsHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Exchange cards handler');
 
   const eventBody = JSON.parse(event.body);
@@ -1109,7 +1117,7 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event, _conte
   }
 };
 
-export const chatMessageHandler: APIGatewayProxyHandler = async (event, _context) => {
+export const chatMessageHandler: APIGatewayProxyHandler = async (event) => {
   console.log('Chat message handler');
 
   const eventBody = JSON.parse(event.body);

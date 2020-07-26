@@ -241,7 +241,7 @@ class MissionService {
 
       // First level neighbours
       for (let j = 0; j < firstLevelNeighbours.length; j += 1) {
-        if (_.find(countries, (obj) => obj.countryKey === firstLevelNeighbours[j])) {
+        if (_.find(countries, (obj: Country) => obj.countryKey === firstLevelNeighbours[j])) {
         // if (firstLevelNeighbours[j] === countries[1].countryKey) {
           const secondLevelNeighbours = Country.getNeighboursByCountryKey(firstLevelNeighbours[j]);
 
@@ -258,7 +258,11 @@ class MissionService {
                 if (firstLevelNeighbours[j] !== thirdLevelNeighbours[l]
                     && thirdLevelNeighbours[l] === countries[i].countryKey) {
                   // Add to response array
-                  response.push(_.sortBy([firstLevelNeighbours[j], secondLevelNeighbours[k], thirdLevelNeighbours[l]]));
+                  response.push(_.sortBy([
+                    firstLevelNeighbours[j],
+                    secondLevelNeighbours[k],
+                    thirdLevelNeighbours[l],
+                  ]));
                 }
               }
             }

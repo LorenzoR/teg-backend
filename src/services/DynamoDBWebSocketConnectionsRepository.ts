@@ -14,7 +14,10 @@ class DynamoDBWebSocketConnectionsRepository implements WebSocketConnectionsRepo
   }
 
   public async getById(connectionId: string): Promise<WebSocketConnection> {
-    const connection = await this.dynamoDBMapperWrapper.get(new WebSocketConnection(), { connectionId }) as WebSocketConnection;
+    const connection = await this.dynamoDBMapperWrapper.get(
+      new WebSocketConnection(),
+      { connectionId },
+    ) as WebSocketConnection;
 
     return connection;
   }

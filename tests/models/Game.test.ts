@@ -175,7 +175,7 @@ describe('game model', () => {
     const countryKey = 'BRASIL';
 
     // Assign country to player
-    [(_.find(game.countries, { countryKey })).state.player] = game.players;
+    [{ color: (_.find(game.countries, { countryKey })).state.player.color }] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
@@ -194,7 +194,7 @@ describe('game model', () => {
     const countryKey = 'BRASIL';
     const country = _.find(game.countries, { countryKey });
 
-    [country.state.player] = game.players;
+    [{ color: country.state.player.color }] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
@@ -213,7 +213,7 @@ describe('game model', () => {
     // Assign country to player
     const countryKey = 'BRASIL';
     const country = _.find(game.countries, { countryKey });
-    [country.state.player] = game.players;
+    [{ color: country.state.player.color }] = game.players;
 
     // Set round to add troops
     game.round.type = 'addTroops';
@@ -229,12 +229,12 @@ describe('game model', () => {
     // Assign country to player 1
     const attackerKey = 'BRASIL';
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
 
     // Assign country to player 2
     const defenderKey = 'ARGENTINA';
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    defender.state.player = { color: game.players[1].color };
 
     const errorMsg = 'Attacker needs at least 2 troops to attack';
 
@@ -258,12 +258,12 @@ describe('game model', () => {
 
     // Add troops to country
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
     attacker.state.troops = 10;
 
     // Set country to player 3
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    defender.state.player = { color: game.players[1].color };
 
     // Set round to attack
     game.round.type = 'attack';
@@ -283,7 +283,7 @@ describe('game model', () => {
 
     // Set defender to player 3
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    [, { color: defender.state.player.color }] = game.players;
 
     // Set round to attack
     game.round.type = 'attack';
@@ -305,7 +305,7 @@ describe('game model', () => {
 
     // Set attacker to player 1
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
 
     // Add troops to country
     attacker.state.troops = 4;
@@ -318,7 +318,7 @@ describe('game model', () => {
     expect(() => game.attack(game.players[0].id, attackerKey, defenderKey)).toThrow(errorMsg);
   });
 
-  it('can attack country win random dices', async () => {
+  it('can attack country with random dices', async () => {
     expect.hasAssertions();
 
     const attackerKey = 'BRASIL';
@@ -330,14 +330,14 @@ describe('game model', () => {
 
     // Set attacker to player 1
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
 
     // Add troops to country
     attacker.state.troops = 4;
 
     // Set defender to player 3
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    defender.state.player = { color: game.players[1].color };
 
     // Set round to attack
     game.round.type = 'attack';
@@ -360,14 +360,14 @@ describe('game model', () => {
 
     // Set attacker to player 1
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
 
     // Add troops to country
     attacker.state.troops = 4;
 
     // Set defender to player 3
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    defender.state.player = { color: game.players[1].color };
 
     // Set round to attack
     game.round.type = 'attack';
@@ -379,7 +379,7 @@ describe('game model', () => {
     expect(response.dices.defender).toHaveLength(1);
 
     expect(response.countryConquered).toBe(true);
-    expect(response.defender.state.player.id).toBe(game.players[0].id);
+    expect(response.defender.state.player.color).toBe(game.players[0].color);
   });
 
   it('can attack country and lose', async () => {
@@ -394,14 +394,14 @@ describe('game model', () => {
 
     // Set attacker to player 1
     const attacker = _.find(game.countries, { countryKey: attackerKey });
-    [attacker.state.player] = game.players;
+    attacker.state.player = { color: game.players[0].color };
 
     // Add troops to country
     attacker.state.troops = 4;
 
     // Set defender to player 3
     const defender = _.find(game.countries, { countryKey: defenderKey });
-    [, defender.state.player] = game.players;
+    defender.state.player = { color: game.players[1].color };
 
     // Set round to attack
     game.round.type = 'attack';
@@ -413,7 +413,7 @@ describe('game model', () => {
     expect(response.dices.defender).toHaveLength(1);
 
     expect(response.countryConquered).toBe(false);
-    expect(response.defender.state.player.id).toBe(game.players[1].id);
+    expect(response.defender.state.player.color).toBe(game.players[1].color);
   });
 
   it('can finish round', async () => {
@@ -443,12 +443,12 @@ describe('game model', () => {
 
     // Set source to player 1 and add troops to country
     const source = _.find(game.countries, { countryKey: sourceKey });
-    [source.state.player] = game.players;
+    [{ color: source.state.player.color }] = game.players;
     source.state.troops = addedTroops + 1;
 
     // Set target to player 1
     const target = _.find(game.countries, { countryKey: targetKey });
-    [target.state.player] = game.players;
+    [{ color: target.state.player.color }] = game.players;
 
     // Add troops to country
     game.addTroops(game.players[0].id, sourceKey, addedTroops);
@@ -476,7 +476,7 @@ describe('game model', () => {
 
     // Set source to player 1 and add troops to country
     const source = _.find(game.countries, { countryKey: sourceKey });
-    [source.state.player] = game.players;
+    [{ color: source.state.player.color }] = game.players;
     source.state.troops = addedTroops + 1;
 
     // Add free troops to add
@@ -484,7 +484,7 @@ describe('game model', () => {
 
     // Set target to player 1
     const target = _.find(game.countries, { countryKey: targetKey });
-    [target.state.player] = game.players;
+    [{ color: target.state.player.color }] = game.players;
 
     // Add troops to country
     // game.addTroops(game.players[0].id, sourceKey, addedTroops);
@@ -552,7 +552,7 @@ describe('game model', () => {
     const { cards } = player;
 
     // Assign a country to player 1
-    [(_.find(game.countries, { countryKey: cards[0].country })).state.player] = game.players;
+    [{ color: (_.find(game.countries, { countryKey: cards[0].country })).state.player.color }] = game.players;
 
     const country = _.find(game.countries, { countryKey: cards[0].country });
     const troopbsBeforeExchange = country.state.newTroops + country.state.troops;

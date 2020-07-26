@@ -23,12 +23,14 @@ class DynamoDBMapperWrapper {
 
     this.mapper = new DataMapper({
       client: this.DynamoDB,
-      // client: new DynamoDB({ region: 'ap-southeast-2' }), // the SDK client used to execute operations
-      tableNamePrefix: `${stage}-`, // optionally, you can provide a table prefix to keep your dev and prod tables separate
+      // the SDK client used to execute operations
+      // client: new DynamoDB({ region: 'ap-southeast-2' }),
+      // optionally, you can provide a table prefix to keep your dev and prod tables separate
+      tableNamePrefix: `${stage}-`,
     });
   }
 
-  public async put(element: {}, attributes: Record<string, any>): Promise<boolean> {
+  public async put(element: any, attributes: Record<string, any>): Promise<boolean> {
     // const game = new Game();
     const toSave = Object.assign(element, attributes);
 
@@ -42,7 +44,7 @@ class DynamoDBMapperWrapper {
     }
   }
 
-  public async get(element: {}, key: Record<string, any>): Promise<Record<string, any> | null> {
+  public async get(element: any, key: Record<string, any>): Promise<Record<string, any> | null> {
     try {
       const response = await this.mapper.get(Object.assign(element, key));
 
@@ -74,7 +76,7 @@ class DynamoDBMapperWrapper {
     }
   }
 
-  public async delete(element: {}, key: Record<string, any>): Promise<boolean> {
+  public async delete(element: any, key: Record<string, any>): Promise<boolean> {
     if (!key) {
       return null;
     }

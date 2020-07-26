@@ -2,19 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug tests single run WRONG",
-      "type": "node",
-      "request": "launch",
-      "env": { "CI": "true" },
-      "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/jest",
-      "args": ["--ci", "--verbose"],
-      "port": 4674,
-      "cwd": "${workspaceRoot}",
-      "protocol": "inspector",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    },
-    {
       "type": "node",
       "request": "launch",
       "name": "jest test debug sample",

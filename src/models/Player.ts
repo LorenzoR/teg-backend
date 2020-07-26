@@ -9,7 +9,7 @@ export interface PlayerType {
   id: string;
   name: string;
   color: string;
-  troopsToAdd?: { free: number };
+  troopsToAdd?: {[key: string]: number};
   mission?: Mission;
   cards?: Array<any>;
   canGetCard?: boolean;
@@ -38,7 +38,7 @@ class Player {
   public color?: string;
 
   @attribute()
-  public troopsToAdd?: { free: number };
+  public troopsToAdd?: {[key: string]: number};
 
   @attribute({ memberType: embed(Mission) })
   public mission?: Mission;

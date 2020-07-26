@@ -63,7 +63,7 @@ class DynamoDBService {
     }
   }
 
-  public async get(TableName: string, Key: {}): Promise<boolean> {
+  public async get(TableName: string, Key: any): Promise<boolean> {
     const params = {
       TableName,
       Key,
@@ -88,7 +88,7 @@ class DynamoDBService {
     }
   }
 
-  public async delete(TableName: string, Key: {}): Promise<boolean> {
+  public async delete(TableName: string, Key: any): Promise<boolean> {
     const params = {
       TableName,
       Key,

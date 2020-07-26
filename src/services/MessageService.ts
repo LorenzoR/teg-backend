@@ -21,7 +21,7 @@ class MessageService {
     }
   }
 
-  public async sendMessageToAllPlayersAndGuests(gameId: string, data: {}): Promise<boolean> {
+  public async sendMessageToAllPlayersAndGuests(gameId: string, data: any): Promise<boolean> {
     try {
       await this.sendMessageToAllGuests(gameId, data);
       await this.sendMessageToAllPlayers(gameId, data);
@@ -33,7 +33,7 @@ class MessageService {
     }
   }
 
-  public async sendMessageToAllPlayers(gameId: string, data: {}): Promise<boolean> {
+  public async sendMessageToAllPlayers(gameId: string, data: any): Promise<boolean> {
     const game = await this.gameService.getGame(gameId);
 
     if (!game) {
@@ -60,7 +60,7 @@ class MessageService {
     }
   }
 
-  public async sendMessageToAllGuests(gameId: string, data: {}): Promise<boolean> {
+  public async sendMessageToAllGuests(gameId: string, data: any): Promise<boolean> {
     const game = await this.gameService.getGame(gameId);
 
     if (!game) {

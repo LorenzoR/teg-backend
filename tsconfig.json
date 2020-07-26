@@ -5,6 +5,10 @@
     "moduleResolution": "node",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    // "noImplicitAny": true, // Change this after fixing errors
+    // "noImplicitReturns": true,
+    // "noImplicitThis": true,
+    // "strictNullChecks": true, // Change this after fixing errors
     "sourceMap": true,
     "target": "es2017",
     "outDir": "lib",

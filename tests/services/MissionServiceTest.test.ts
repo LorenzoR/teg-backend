@@ -245,7 +245,7 @@ describe('mission service', () => {
 
     const missions = MissionService.getAllMissions();
     const mission = missions.AFRICA_NORTH_AMERICA_5_EUROPE_4;
-    const response = MissionService.missionCompleted(mission, null);
+    const response = MissionService.missionCompleted(mission, []);
 
     expect(response).toBe(false);
   });

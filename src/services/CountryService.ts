@@ -239,11 +239,11 @@ const Countries = [
 ];
 
 class CountryService {
-  public static getAllCountries(): {} {
+  public static getAllCountries(): {[key: string]: string} {
     return CountryType;
   }
 
-  public static getAllCountriesData(): {} {
+  public static getAllCountriesData(): { id: string; name: string; continent: string; }[] {
     return Countries;
   }
 }
