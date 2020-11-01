@@ -34,7 +34,8 @@
         "ts": "never",
         "tsx": "never"
       }
-    ]
+    ],
+    "indent": ["error", 4]
   },
   "parser": "@typescript-eslint/parser",
   "env": {},

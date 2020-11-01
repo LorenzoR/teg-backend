@@ -1,13 +1,13 @@
 import {
-  attribute,
-  hashKey,
-  table,
+    attribute,
+    hashKey,
+    table,
 } from '@aws/dynamodb-data-mapper-annotations';
 
 @table('connection-ids')
 class WebSocketConnection {
   @hashKey({
-    type: 'String',
+      type: 'String',
   })
   public connectionId?: string;
 

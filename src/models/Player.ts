@@ -1,6 +1,4 @@
-import {
-  attribute,
-} from '@aws/dynamodb-data-mapper-annotations';
+import { attribute } from '@aws/dynamodb-data-mapper-annotations';
 import { embed } from '@aws/dynamodb-data-mapper';
 
 import Mission from './Mission';
@@ -19,12 +17,12 @@ export interface PlayerType {
 }
 
 export const PlayerTypes = {
-  BLUE: 'blue',
-  RED: 'red',
-  GREEN: 'green',
-  YELLOW: 'yellow',
-  BLACK: 'black',
-  PINK: 'pink',
+    BLUE: 'blue',
+    RED: 'red',
+    GREEN: 'green',
+    YELLOW: 'yellow',
+    BLACK: 'black',
+    PINK: 'pink',
 };
 
 class Player {
@@ -58,7 +56,7 @@ class Player {
   @attribute()
   public playerStatus?: string;
 
-  /*
+    /*
   public playerIsAdmin(): boolean {
     return this.isAdmin;
   }
