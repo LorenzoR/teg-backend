@@ -8,7 +8,7 @@ import MissionService from './MissionService';
 import CountryCard, { CountryCardType } from '../models/CountryCard';
 
 class DealService {
-    public static dealCountriesAndMissions(playersParam: Player[]): { countries: any; players: any} {
+    public static dealCountriesAndMissions(playersParam: Player[]): { countries: Country[]; players: Player[]} {
         const players = _.shuffle([...playersParam]); // Shuffle players order
         const numberOfPlayers = players.length;
         const countryKeys = CountryService.getAllCountries();

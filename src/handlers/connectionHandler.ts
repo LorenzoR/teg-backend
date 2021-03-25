@@ -16,7 +16,8 @@ const webSocketConnectionRepository = new WebSocketConnectionRepository(
     process.env.STAGE || 'local',
 );
 
-const getGameIdFromEvent = (event: APIGatewayProxyEvent): string => event.queryStringParameters.game_id;
+// eslint-disable-next-line camelcase
+const getGameIdFromEvent = (event: APIGatewayProxyEvent): string | undefined => event?.queryStringParameters?.game_id;
 
 // TODO. Refactor
 const sendGameInfoToAllPlayers = async (game: Game): Promise<boolean> => {
@@ -50,15 +51,31 @@ const sendGameInfoToAllPlayers = async (game: Game): Promise<boolean> => {
     }
 };
 
-export const connectHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Connect Handler');
+export const connectHandler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent) => {
+    console.log('/////*********///////////******** Connect Handler');
+    console.log('EVENT', event);
 
     const { connectionId } = event.requestContext;
     const isNewGame = false;
 
     // Add to guests so we have the connection ID
     const gameId = getGameIdFromEvent(event);
+
+    if (!gameId || gameId === 'undefined') {
+        const msg = 'No game ID found in event';
+        console.log(msg);
+        return {
+            statusCode: 200,
+            body: JSON.stringify(msg),
+        };
+    }
+
     console.log(`Trying to get game ID ${gameId}`);
+    if (gameId) {
+        console.log(`game ID es ${gameId}`);
+    } else {
+        console.log(`NO game ID, es ${gameId}`);
+    }
 
     // Add connection
     const newConnection = new WebSocketConnection();
@@ -246,7 +263,9 @@ export const disconnectHandler: APIGatewayProxyHandler = async (event) => {
             await gameRepository.update(game);
             console.log('Game updated');
 
-            const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer.name };
+            console.log('Players', game.players);
+
+            const payloadBody = { players: game.players, disconnectedPlayerName: removedPlayer?.name || '' };
             payload = { action: 'playerDisconnected', body: payloadBody };
 
             // setEndpointFromEvent(event);

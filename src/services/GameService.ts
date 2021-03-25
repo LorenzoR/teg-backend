@@ -1,13 +1,29 @@
+import { AWSError, DynamoDB } from 'aws-sdk';
+import { PromiseResult } from 'aws-sdk/lib/request';
 import Game from '../models/Game';
 import Country from '../models/Country';
 import { RoundType } from '../models/Round';
 
 interface Repository {
-    put: any;
-    scan: any;
-    get: any;
-    update: any;
-    delete: any;
+    put: (
+        params: DynamoDB.DocumentClient.PutItemInput,
+    ) => Promise<PromiseResult<DynamoDB.DocumentClient.PutItemOutput, AWSError>>;
+    scan: (params: DynamoDB.DocumentClient.ScanInput) => Promise<PromiseResult<DynamoDB.DocumentClient.ScanOutput, AWSError>>;
+    get: (
+        tableName: string,
+        key: DynamoDB.DocumentClient.GetItemInput['Key'],
+    ) => Promise<PromiseResult<DynamoDB.DocumentClient.GetItemOutput, AWSError>>;
+    update: (
+        tableName: string,
+        key: DynamoDB.DocumentClient.UpdateItemInput['Key'],
+        updateExpression: DynamoDB.DocumentClient.UpdateItemInput['UpdateExpression'],
+        expressionAttributeValues: DynamoDB.DocumentClient.UpdateItemInput['ExpressionAttributeValues'],
+        expressionAttributeNames?: DynamoDB.DocumentClient.UpdateItemInput['ExpressionAttributeNames'],
+    ) => Promise<PromiseResult<DynamoDB.DocumentClient.UpdateItemOutput, AWSError>>;
+    delete: (
+        tableName: string,
+        Key: DynamoDB.DocumentClient.DeleteItemInput['Key'],
+    ) => Promise<PromiseResult<DynamoDB.DocumentClient.DeleteItemOutput, AWSError>>;
 }
 
 const GameStatusType = {
@@ -30,7 +46,7 @@ class GameService {
 
     public async newGame(UUID: string): Promise<Game | null> {
         const params = {
-        // TableName: this.GAMES_TABLE_NAME,
+            TableName: this.GAMES_TABLE_NAME,
             Item: {
                 UUID,
                 players: [],
@@ -48,7 +64,7 @@ class GameService {
         };
 
         try {
-            const response = await this.repository.put(this.GAMES_TABLE_NAME, params);
+            const response = await this.repository.put(params);
 
             if (response) {
                 return Object.assign(new Game(), params.Item);
@@ -84,7 +100,7 @@ class GameService {
         }
     }
 
-    public async updateGame(game: Game): Promise<Game | null> {
+    public async updateGame(game: Game): Promise<DynamoDB.DocumentClient.AttributeMap> {
         // Update game
         // const updateExpression = 'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc, guests = :g, eventsLog = :e, winner = :w';
         const updateExpression = 'set players = :p, countries= :c, round= :r, gameStatus= :s, countryCards= :cc, eventsLog = :e, winner = :w';
@@ -108,7 +124,7 @@ class GameService {
             );
 
             if (response) {
-                return response;
+                return response.Attributes;
             }
 
             // TODO. Handle error
@@ -119,7 +135,7 @@ class GameService {
         }
     }
 
-    public async updateCountry(UUID: string, country: Country): Promise<Game | null> {
+    public async updateCountry(UUID: string, country: Country): Promise<PromiseResult<DynamoDB.DocumentClient.UpdateItemOutput, AWSError>> {
         // Update game
         const updateExpression = 'set countries.#countryKey = :c';
         const expressionAttributeNames = {
@@ -151,7 +167,7 @@ class GameService {
         }
     }
 
-    public async updateCountriesAndPlayers(game: Game): Promise<Game | null> {
+    public async updateCountriesAndPlayers(game: Game): Promise<PromiseResult<DynamoDB.DocumentClient.UpdateItemOutput, AWSError>> {
         // Update game
         const updateExpression = 'set players = :p, countries= :c';
         const expressionAttributeValues = {
@@ -179,7 +195,7 @@ class GameService {
         }
     }
 
-    public async scanGames(): Promise<any> {
+    public async scanGames(): Promise<PromiseResult<DynamoDB.DocumentClient.ScanOutput, AWSError>> {
         const params = {
             TableName: this.GAMES_TABLE_NAME,
         };

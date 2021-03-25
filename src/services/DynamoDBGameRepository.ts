@@ -25,7 +25,7 @@ class DynamoDBGameRepository implements GameRepositoryInterface {
     }
 
     public async update(game: Game): Promise<Game> {
-        const response = await this.dynamoDBMapperWrapper.update(game);
+        const response = await this.dynamoDBMapperWrapper.update(game) as Promise<Game>;
 
         return response;
     }

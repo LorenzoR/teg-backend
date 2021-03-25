@@ -30,7 +30,7 @@ class DynamoDBMapperWrapper {
         });
     }
 
-    public async put(element: any, attributes: Record<string, any>): Promise<boolean> {
+    public async put(element: unknown, attributes: unknown): Promise<boolean> {
         // const game = new Game();
         const toSave = Object.assign(element, attributes);
 
@@ -44,7 +44,7 @@ class DynamoDBMapperWrapper {
         }
     }
 
-    public async get(element: any, key: Record<string, any>): Promise<Record<string, any> | null> {
+    public async get(element: unknown, key: unknown): Promise<unknown | null> {
         try {
             const response = await this.mapper.get(Object.assign(element, key));
 
@@ -55,7 +55,7 @@ class DynamoDBMapperWrapper {
         }
     }
 
-    public async update(item: any): Promise<any> {
+    public async update(item: unknown): Promise<unknown> {
         try {
             const response = await this.mapper.update(item);
 
@@ -66,7 +66,7 @@ class DynamoDBMapperWrapper {
         }
     }
 
-    public async scan(params: any): Promise<boolean> {
+    public async scan(params: unknown): Promise<boolean> {
         try {
             const response = await this.DynamoDB.scan(params).promise();
             return response;
@@ -76,7 +76,7 @@ class DynamoDBMapperWrapper {
         }
     }
 
-    public async delete(element: any, key: Record<string, any>): Promise<boolean> {
+    public async delete(element: unknown, key: unknown): Promise<boolean> {
         if (!key) {
             return null;
         }

@@ -45,7 +45,7 @@ describe('dynamoDB mapper wrapper service', () => {
         expect.hasAssertions();
 
         const key = { UUID: '1' };
-        const response = await dynamoDBMapperWrapper.get(new Game(), key);
+        const response = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
 
         const player = Object.assign(new Player(), response.players[0]);
 
@@ -57,12 +57,12 @@ describe('dynamoDB mapper wrapper service', () => {
         expect.hasAssertions();
 
         const key = { UUID: '1' };
-        const game = await dynamoDBMapperWrapper.get(new Game(), key);
+        const game = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
         game.gameStatus = 'finished';
 
-        const updateResponse = await dynamoDBMapperWrapper.update(game);
+        const updateResponse = await dynamoDBMapperWrapper.update(game) as Game;
 
-        const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
+        const getResponse = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
 
         expect(updateResponse.UUID).toBe(key.UUID);
         expect(getResponse.gameStatus).toBe(game.gameStatus);

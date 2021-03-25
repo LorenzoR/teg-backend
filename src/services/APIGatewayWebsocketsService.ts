@@ -3,7 +3,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
 import Game from '../models/Game';
-import DynamoDBGameRepository from './DynamoDBGameRepository';
+import { GameRepositoryInterface } from './GameRepositoryInterface';
 
 class APIGatewayWebsocketsService {
     private apigwManagementApi!: ApiGatewayManagementApi;
@@ -15,11 +15,13 @@ class APIGatewayWebsocketsService {
                 endpoint,
                 accessKeyId: 'DEFAULT_ACCESS_KEY', // needed if you don't have aws credentials at all in env
                 secretAccessKey: 'DEFAULT_SECRET', // needed if you don't have aws credentials at all in env
+                region: 'eu-west-1',
             });
         } else {
             this.apigwManagementApi = new ApiGatewayManagementApi({
                 apiVersion,
                 endpoint,
+                region: 'eu-west-1',
             });
         }
     }
@@ -39,7 +41,7 @@ class APIGatewayWebsocketsService {
         });
     }
 
-    public async send(connectionId: string, data: any): Promise<boolean> {
+    public async send(connectionId: string, data: ApiGatewayManagementApi.PostToConnectionRequest['Data']): Promise<boolean> {
         if (connectionId) {
             try {
                 await this.apigwManagementApi
@@ -57,7 +59,10 @@ class APIGatewayWebsocketsService {
         return false;
     }
 
-    public async broadcast(data: any, connectionIds: string[]): Promise<{ id: string; response: boolean } []> {
+    public async broadcast(
+        data: ApiGatewayManagementApi.PostToConnectionRequest['Data'],
+        connectionIds: string[],
+    ): Promise<{ id: string; response: boolean } []> {
         // Remove duplicates
         const uniqueConnectionIds = [...new Set(connectionIds)];
         const promises = [];
@@ -79,7 +84,10 @@ class APIGatewayWebsocketsService {
         return response;
     }
 
-    public async broadcastDifferentData(data: any[], connectionIds: string[]): Promise<{ id: string; response: boolean } []> {
+    public async broadcastDifferentData(
+        data: ApiGatewayManagementApi.PostToConnectionRequest['Data'][],
+        connectionIds: string[],
+    ): Promise<{ id: string; response: boolean } []> {
         // Remove duplicates
         const uniqueConnectionIds = [...new Set(connectionIds)];
         const promises = [];
@@ -101,7 +109,11 @@ class APIGatewayWebsocketsService {
         return response;
     }
 
-    public async sendMessageToAllPlayers(game: Game, gameRepository: DynamoDBGameRepository, data: any): Promise<boolean> {
+    public async sendMessageToAllPlayers(
+        game: Game,
+        gameRepository: GameRepositoryInterface,
+        data: ApiGatewayManagementApi.PostToConnectionRequest['Data'],
+    ): Promise<boolean> {
         if (!game) {
             throw new Error('No game');
         }

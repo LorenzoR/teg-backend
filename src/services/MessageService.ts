@@ -1,3 +1,4 @@
+import { ApiGatewayManagementApi } from 'aws-sdk';
 import GameService from './GameService';
 import DynamoDBOffline from './DynamoDBOffline';
 import APIGatewayWebsocketsService from './APIGatewayWebsocketsService';
@@ -35,7 +36,7 @@ class MessageService {
     }
     */
 
-    public async sendMessageToAllPlayers(gameId: string, data: any): Promise<boolean> {
+    public async sendMessageToAllPlayers(gameId: string, data: ApiGatewayManagementApi.PostToConnectionRequest['Data']): Promise<boolean> {
         const game = await this.gameService.getGame(gameId);
 
         if (!game) {

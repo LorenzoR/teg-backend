@@ -2,6 +2,7 @@ import _ from 'lodash';
 
 import Game from '../../src/models/Game';
 import Player from '../../src/models/Player';
+import CountryCard from '../../src/models/CountryCard';
 
 const gameId = '1234';
 
@@ -129,7 +130,7 @@ describe('game model', () => {
 
         const onlinePlayers = game.getOnlinePlayers();
 
-        expect(onlinePlayers).toHaveLength(3);
+        expect(onlinePlayers).toHaveLength(2);
     });
 
     it('can start a game', async () => {
@@ -517,18 +518,23 @@ describe('game model', () => {
         game.round.playerIndex = 0;
 
         // Add some cards to player 1
-        const cards = ['ARGENTINA', 'IRAN', 'URUGUAY'];
-        game.players[0].cards.push({ country: cards[0] });
-        game.players[0].cards.push({ country: cards[1] });
-        game.players[0].cards.push({ country: cards[2] });
+        // const cards = ['ARGENTINA', 'IRAN', 'URUGUAY'];
+        const cards: CountryCard[] = [
+            Object.assign(new CountryCard(), { country: 'ARGENTINA' }),
+            Object.assign(new CountryCard(), { country: 'IRAN' }),
+            Object.assign(new CountryCard(), { country: 'URUGUAY' }),
+        ];
+        game.players[0].cards.push(cards[0]);
+        game.players[0].cards.push(cards[1]);
+        game.players[0].cards.push(cards[2]);
 
         // Remove 3 cards from deck
-        _.remove(game.countryCards, (obj) => obj.country === cards[0]);
-        _.remove(game.countryCards, (obj) => obj.country === cards[1]);
-        _.remove(game.countryCards, (obj) => obj.country === cards[2]);
+        _.remove(game.countryCards, (obj) => obj.country === cards[0].country);
+        _.remove(game.countryCards, (obj) => obj.country === cards[1].country);
+        _.remove(game.countryCards, (obj) => obj.country === cards[2].country);
 
         // Exchange cards
-        const response = game.exchangeCards(game.players[0].id, cards);
+        const response = game.exchangeCards(game.players[0].id, cards.map((c) => c.country));
 
         player = _.find(response.players, (obj) => obj.color === game.players[0].color);
 

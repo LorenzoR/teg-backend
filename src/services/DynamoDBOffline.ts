@@ -1,7 +1,8 @@
-import { DynamoDB } from 'aws-sdk';
+import { AWSError, DynamoDB } from 'aws-sdk';
+import { PromiseResult } from 'aws-sdk/lib/request';
 
 class DynamoDBOffline {
-    private DynamoDB = null;
+    private DynamoDB: DynamoDB.DocumentClient = null;
 
     constructor(stage: string) {
         if (stage === 'local') {
@@ -18,25 +19,27 @@ class DynamoDBOffline {
         }
     }
 
-    public async put(tableName: string, params: any): Promise<boolean> {
-        const paramsCopy = { TableName: tableName, ...params };
+    public async put(
+        params: DynamoDB.DocumentClient.PutItemInput,
+    ): Promise<PromiseResult<DynamoDB.DocumentClient.PutItemOutput, AWSError>> {
+        const paramsCopy = { ...params };
 
         try {
             const response = await this.DynamoDB.put(paramsCopy).promise();
             return response;
         } catch (error) {
             console.log(error);
-            return false;
+            return undefined;
         }
     }
 
     public async update(
         TableName: string,
-        Key: any,
-        UpdateExpression: any,
-        ExpressionAttributeValues: any,
-        ExpressionAttributeNames = null,
-    ): Promise<boolean> {
+        Key: DynamoDB.DocumentClient.UpdateItemInput['Key'],
+        UpdateExpression: DynamoDB.DocumentClient.UpdateItemInput['UpdateExpression'],
+        ExpressionAttributeValues: DynamoDB.DocumentClient.UpdateItemInput['ExpressionAttributeValues'],
+        ExpressionAttributeNames: DynamoDB.DocumentClient.UpdateItemInput['ExpressionAttributeNames'] = null,
+    ): Promise<PromiseResult<DynamoDB.DocumentClient.UpdateItemOutput, AWSError>> {
         const params = {
             TableName,
             Key,
@@ -50,18 +53,22 @@ class DynamoDBOffline {
             const response = await this.DynamoDB.update(params).promise();
 
             if (response && response.Attributes) {
-                return response.Attributes;
+                return response;
+                // return response.Attributes;
             }
 
             // TODO. Handle error
-            return null;
+            return undefined;
         } catch (error) {
             console.log(error);
-            return null;
+            return undefined;
         }
     }
 
-    public async get(TableName: string, Key: any): Promise<boolean> {
+    public async get(
+        TableName: string,
+        Key: DynamoDB.DocumentClient.GetItemInput['Key'],
+    ): Promise<PromiseResult<DynamoDB.DocumentClient.GetItemOutput, AWSError>> {
         const params = {
             TableName,
             Key,
@@ -72,21 +79,21 @@ class DynamoDBOffline {
             return response;
         } catch (error) {
             console.error(error);
-            return null;
+            return undefined;
         }
     }
 
-    public async scan(params: any): Promise<boolean> {
+    public async scan(params: DynamoDB.DocumentClient.ScanInput): Promise<PromiseResult<DynamoDB.DocumentClient.ScanOutput, AWSError>> {
         try {
             const response = await this.DynamoDB.scan(params).promise();
             return response;
         } catch (error) {
             console.error(error);
-            return null;
+            return undefined;
         }
     }
 
-    public async delete(TableName: string, Key: any): Promise<boolean> {
+    public async delete(TableName: string, Key: DynamoDB.DocumentClient.DeleteItemInput['Key']): Promise<PromiseResult<DynamoDB.DocumentClient.DeleteItemOutput, AWSError>> {
         const params = {
             TableName,
             Key,
@@ -97,7 +104,7 @@ class DynamoDBOffline {
             return response;
         } catch (error) {
             console.error(error);
-            return null;
+            return undefined;
         }
     }
 }

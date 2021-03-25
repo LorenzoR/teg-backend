@@ -56,7 +56,7 @@ provider:
 functions:
 # API Gateway
   userRegistration:
-    handler: src/handlers/handler.newGameHandler
+    handler: src/handlers/gameHandler.newGameHandler
     events:
       - http:
           path: new-game
@@ -80,25 +80,25 @@ functions:
           route: reConnect
           routeResponseSelectionExpression: $default
   joinGame:
-    handler: src/handlers/handler.joinGameHandler
+    handler: src/handlers/gameHandler.joinGameHandler
     events:
       - websocket:
           route: joinGame
           routeResponseSelectionExpression: $default
   getPlayers:
-    handler: src/handlers/handler.getPlayersHandler
+    handler: src/handlers/playersHandler.getPlayersHandler
     events:
       - websocket:
           route: getPlayers
           routeResponseSelectionExpression: $default
   startGame:
-    handler: src/handlers/handler.startGameHandler
+    handler: src/handlers/gameHandler.startGameHandler
     events:
       - websocket:
           route: startGame
           routeResponseSelectionExpression: $default
   finishRound:
-    handler: src/handlers/handler.finishRoundHandler
+    handler: src/handlers/gameHandler.finishRoundHandler
     events:
       - websocket:
           route: finishRound
@@ -116,31 +116,31 @@ functions:
           route: moveTroops
           routeResponseSelectionExpression: $default
   attack:
-    handler: src/handlers/handler.attackHandler
+    handler: src/handlers/troopsHandler.attackHandler
     events:
       - websocket:
           route: attack
           routeResponseSelectionExpression: $default
   getCard:
-    handler: src/handlers/handler.getCardHandler
+    handler: src/handlers/cardsHandler.getCardHandler
     events:
       - websocket:
           route: getCard
           routeResponseSelectionExpression: $default
   exchangeCard:
-    handler: src/handlers/handler.exchangeCardHandler
+    handler: src/handlers/cardsHandler.exchangeCardHandler
     events:
       - websocket:
           route: exchangeCard
           routeResponseSelectionExpression: $default
   exchangeCards:
-    handler: src/handlers/handler.exchangeCardsHandler
+    handler: src/handlers/cardsHandler.exchangeCardsHandler
     events:
       - websocket:
           route: exchangeCards
           routeResponseSelectionExpression: $default
   chatMessage:
-    handler: src/handlers/handler.chatMessageHandler
+    handler: src/handlers/chatHandler.chatMessageHandler
     events:
       - websocket:
           route: chatMessage
