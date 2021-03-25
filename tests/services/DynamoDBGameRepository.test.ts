@@ -95,9 +95,12 @@ describe('dynamoDB mapper wrapper service', () => {
         const countryIndex = _.findIndex(game.countries, (obj) => obj.state.player.color === player.color);
         game.countries[countryIndex] = Object.assign(new Country(), game.countries[countryIndex]);
 
-        const response = game.addTroops(player.id, game.countries[countryIndex].countryKey, 1);
+        const troopsBefore = game.countries[countryIndex].state.troops;
+        const troopsToAdd = 1;
 
-        expect(response.state.troops).toBe(1);
+        const response = game.addTroops(player.id, game.countries[countryIndex].countryKey, troopsToAdd);
+
+        expect(response.state.troops).toBe(troopsToAdd + troopsBefore);
     });
 
     it('can delete a game', async () => {
