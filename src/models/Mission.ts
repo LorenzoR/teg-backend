@@ -1,6 +1,4 @@
-import {
-  attribute,
-} from '@aws/dynamodb-data-mapper-annotations';
+import { attribute } from '@aws/dynamodb-data-mapper-annotations';
 
 class Mission {
   @attribute()

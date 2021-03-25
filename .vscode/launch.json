@@ -18,8 +18,8 @@
       "type": "node",
       "request": "launch",
       "runtimeArgs": ["--inspect", "--debug-port=9229"],
-      "program": "/home/lrodrigo/.nvm/versions/node/v12.16.2/bin/serverless",
-      "args": ["offline", "--stage local"],
+      "program": "/home/lorenzo/.nvm/versions/node/v12.18.3/bin/serverless",
+      "args": ["offline", "--stage", "local"],
       "port": 9229,
       "console": "integratedTerminal"
     },

@@ -56,7 +56,7 @@ provider:
 functions:
 # API Gateway
   userRegistration:
-    handler: src/handler.newGameHandler
+    handler: src/handlers/gameHandler.newGameHandler
     events:
       - http:
           path: new-game
@@ -65,82 +65,82 @@ functions:
 
 # Web sockets
   connectHandler:
-    handler: src/handler.connectHandler
+    handler: src/handlers/connectionHandler.connectHandler
     events:
       - websocket: $connect
   disconnectHandler:
-    handler: src/handler.disconnectHandler
+    handler: src/handlers/connectionHandler.disconnectHandler
     events:
       - websocket:
           route: $disconnect
+  reConnect:
+    handler: src/handlers/connectionHandler.reConnectHandler
+    events:
+      - websocket:
+          route: reConnect
+          routeResponseSelectionExpression: $default
   joinGame:
-    handler: src/handler.joinGameHandler
+    handler: src/handlers/gameHandler.joinGameHandler
     events:
       - websocket:
           route: joinGame
           routeResponseSelectionExpression: $default
   getPlayers:
-    handler: src/handler.getPlayersHandler
+    handler: src/handlers/playersHandler.getPlayersHandler
     events:
       - websocket:
           route: getPlayers
           routeResponseSelectionExpression: $default
-  reConnect:
-    handler: src/handler.reConnectHandler
-    events:
-      - websocket:
-          route: reConnect
-          routeResponseSelectionExpression: $default
   startGame:
-    handler: src/handler.startGameHandler
+    handler: src/handlers/gameHandler.startGameHandler
     events:
       - websocket:
           route: startGame
           routeResponseSelectionExpression: $default
   finishRound:
-    handler: src/handler.finishRoundHandler
+    handler: src/handlers/gameHandler.finishRoundHandler
     events:
       - websocket:
           route: finishRound
           routeResponseSelectionExpression: $default
   addTroops:
-    handler: src/handler.addTroopsHandler
+    handler: src/handlers/troopsHandler.addTroopsHandler
     events:
       - websocket:
           route: addTroops
           routeResponseSelectionExpression: $default
-  attack:
-    handler: src/handler.attackHandler
-    events:
-      - websocket:
-          route: attack
-          routeResponseSelectionExpression: $default
   moveTroops:
-    handler: src/handler.moveTroopsHandler
+    handler: src/handlers/troopsHandler.moveTroopsHandler
     events:
       - websocket:
           route: moveTroops
           routeResponseSelectionExpression: $default
+  attack:
+    handler: src/handlers/troopsHandler.attackHandler
+    events:
+      - websocket:
+          route: attack
+          routeResponseSelectionExpression: $default
   getCard:
-    handler: src/handler.getCardHandler
+    handler: src/handlers/cardsHandler.getCardHandler
     events:
       - websocket:
           route: getCard
           routeResponseSelectionExpression: $default
   exchangeCard:
-    handler: src/handler.exchangeCardHandler
+    handler: src/handlers/cardsHandler.exchangeCardHandler
     events:
       - websocket:
           route: exchangeCard
           routeResponseSelectionExpression: $default
   exchangeCards:
-    handler: src/handler.exchangeCardsHandler
+    handler: src/handlers/cardsHandler.exchangeCardsHandler
     events:
       - websocket:
           route: exchangeCards
           routeResponseSelectionExpression: $default
   chatMessage:
-    handler: src/handler.chatMessageHandler
+    handler: src/handlers/chatHandler.chatMessageHandler
     events:
       - websocket:
           route: chatMessage
