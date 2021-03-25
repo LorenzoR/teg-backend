@@ -7,77 +7,77 @@ import DynamoDBMapperWrapper from '../../src/services/DynamoDBMapperWrapper';
 const dynamoDBMapperWrapper = new DynamoDBMapperWrapper('local');
 
 describe('dynamoDB mapper wrapper service', () => {
-  it('can insert a game', async () => {
-    expect.hasAssertions();
+    it('can insert a game', async () => {
+        expect.hasAssertions();
 
-    const player1 = new Player();
-    player1.id = '1';
+        const player1 = new Player();
+        player1.id = '1';
 
-    const player2 = new Player();
-    player2.id = '2';
+        const player2 = new Player();
+        player2.id = '2';
 
-    const country1 = new Country();
-    country1.countryKey = 'ARGENTINA';
+        const country1 = new Country();
+        country1.countryKey = 'ARGENTINA';
 
-    const country2 = new Country();
-    country2.countryKey = 'BRASIL';
+        const country2 = new Country();
+        country2.countryKey = 'BRASIL';
 
-    const game = new Game();
-    const params = {
-      UUID: '1',
-      player: player1,
-      players: [
-        player1,
-        player2,
-      ],
-      countries: {
-        ARGENTINA: { countryKey: 'ARGENTINA' },
-        BRASIL: { countryKey: 'BRASIL' },
-      },
-    };
+        const game = new Game();
+        const params = {
+            UUID: '1',
+            player: player1,
+            players: [
+                player1,
+                player2,
+            ],
+            countries: {
+                ARGENTINA: { countryKey: 'ARGENTINA' },
+                BRASIL: { countryKey: 'BRASIL' },
+            },
+        };
 
-    const response = await dynamoDBMapperWrapper.put(game, params);
+        const response = await dynamoDBMapperWrapper.put(game, params);
 
-    expect(response).toBe(true);
-  });
+        expect(response).toBe(true);
+    });
 
-  it('can get a game', async () => {
-    expect.hasAssertions();
+    it('can get a game', async () => {
+        expect.hasAssertions();
 
-    const key = { UUID: '1' };
-    const response = await dynamoDBMapperWrapper.get(new Game(), key);
+        const key = { UUID: '1' };
+        const response = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
 
-    const player = Object.assign(new Player(), response.players[0]);
+        const player = Object.assign(new Player(), response.players[0]);
 
-    expect(response.UUID).toBe(key.UUID);
-    expect(player.id).toBe('1');
-  });
+        expect(response.UUID).toBe(key.UUID);
+        expect(player.id).toBe('1');
+    });
 
-  it('can update a game', async () => {
-    expect.hasAssertions();
+    it('can update a game', async () => {
+        expect.hasAssertions();
 
-    const key = { UUID: '1' };
-    const game = await dynamoDBMapperWrapper.get(new Game(), key);
-    game.gameStatus = 'finished';
+        const key = { UUID: '1' };
+        const game = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
+        game.gameStatus = 'finished';
 
-    const updateResponse = await dynamoDBMapperWrapper.update(game);
+        const updateResponse = await dynamoDBMapperWrapper.update(game) as Game;
 
-    const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
+        const getResponse = await dynamoDBMapperWrapper.get(new Game(), key) as Game;
 
-    expect(updateResponse.UUID).toBe(key.UUID);
-    expect(getResponse.gameStatus).toBe(game.gameStatus);
-  });
+        expect(updateResponse.UUID).toBe(key.UUID);
+        expect(getResponse.gameStatus).toBe(game.gameStatus);
+    });
 
-  it('can delete a game', async () => {
-    expect.hasAssertions();
+    it('can delete a game', async () => {
+        expect.hasAssertions();
 
-    const key = { UUID: '1' };
+        const key = { UUID: '1' };
 
-    const response = await dynamoDBMapperWrapper.delete(new Game(), key);
+        const response = await dynamoDBMapperWrapper.delete(new Game(), key);
 
-    const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
+        const getResponse = await dynamoDBMapperWrapper.get(new Game(), key);
 
-    expect(response).toBe(true);
-    expect(getResponse).toBeNull();
-  });
+        expect(response).toBe(true);
+        expect(getResponse).toBeNull();
+    });
 });

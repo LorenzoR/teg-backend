@@ -8,59 +8,59 @@ import MissionService from './MissionService';
 import CountryCard, { CountryCardType } from '../models/CountryCard';
 
 class DealService {
-  public static dealCountriesAndMissions(playersParam: Player[]): { countries: any; players: any} {
-    const players = _.shuffle([...playersParam]); // Shuffle players order
-    const numberOfPlayers = players.length;
-    const countryKeys = CountryService.getAllCountries();
-    const randomCountryKeys = _.shuffle(Object.keys(countryKeys));
-    const countries: Country[] = [];
-    let counter = 0;
+    public static dealCountriesAndMissions(playersParam: Player[]): { countries: Country[]; players: Player[]} {
+        const players = _.shuffle([...playersParam]); // Shuffle players order
+        const numberOfPlayers = players.length;
+        const countryKeys = CountryService.getAllCountries();
+        const randomCountryKeys = _.shuffle(Object.keys(countryKeys));
+        const countries: Country[] = [];
+        let counter = 0;
 
-    randomCountryKeys.forEach((countryKey) => {
-      const countryAttributes = {
-        countryKey,
-        name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
-        // continent: CountryService.getContinent(countryKey),
-        state: {
-          player: { color: players[counter % numberOfPlayers].color },
-          troops: 1,
-          newTroops: 0, // To keep track of troops added during ADD_TROOPS round
-        },
-      };
+        randomCountryKeys.forEach((countryKey) => {
+            const countryAttributes = {
+                countryKey,
+                name: countryKeys[countryKey], // CountriesList[continentKey].countries[countryKey],
+                // continent: CountryService.getContinent(countryKey),
+                state: {
+                    player: { color: players[counter % numberOfPlayers].color },
+                    troops: 1,
+                    newTroops: 0, // To keep track of troops added during ADD_TROOPS round
+                },
+            };
 
-      const country = Object.assign(new Country(), countryAttributes);
+            const country = Object.assign(new Country(), countryAttributes);
 
-      countries.push(country);
+            countries.push(country);
 
-      counter += 1;
-    });
+            counter += 1;
+        });
 
-    // Deal missions
-    const missions = MissionService.getRandomMissions(players.length);
+        // Deal missions
+        const missions = MissionService.getRandomMissions(players.length);
 
-    missions.forEach((mission, index) => {
-      players[index].mission = mission;
-    });
+        missions.forEach((mission, index) => {
+            players[index].mission = mission;
+        });
 
-    // Game started
-    // const activity = [
-    //  {
-    //    type: 'green',
-    //    time: moment().format('HH:mm:ss'),
-    //    text: 'Game started',
-    //  },
-    // ];
+        // Game started
+        // const activity = [
+        //  {
+        //    type: 'green',
+        //    time: moment().format('HH:mm:ss'),
+        //    text: 'Game started',
+        //  },
+        // ];
 
-    // this.setState({ countries, players, activity });
-    return {
-      countries,
-      players,
-    };
-  }
+        // this.setState({ countries, players, activity });
+        return {
+            countries,
+            players,
+        };
+    }
 
-  public static dealCountryCards(): CountryCardType[] {
-    return _.shuffle(CountryCard.getAllCards());
-  }
+    public static dealCountryCards(): CountryCardType[] {
+        return _.shuffle(CountryCard.getAllCards());
+    }
 }
 
 export default DealService;

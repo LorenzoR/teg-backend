@@ -1,6 +1,4 @@
-import {
-  attribute,
-} from '@aws/dynamodb-data-mapper-annotations';
+import { attribute } from '@aws/dynamodb-data-mapper-annotations';
 // import { embed } from '@aws/dynamodb-data-mapper';
 
 // import Player from './Player';

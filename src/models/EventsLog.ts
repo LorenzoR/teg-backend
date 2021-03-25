@@ -1,19 +1,17 @@
-import {
-  attribute,
-} from '@aws/dynamodb-data-mapper-annotations';
+import { attribute } from '@aws/dynamodb-data-mapper-annotations';
 
 class EventsLog {
-  @attribute()
-  public type: string;
+    @attribute()
+    public type: string;
 
-  @attribute()
-  public text: string;
+    @attribute()
+    public text: string;
 
-  @attribute()
-  public playerColor: string;
+    @attribute()
+    public playerColor: string;
 
-  @attribute()
-  public time: number;
+    @attribute()
+    public time: number;
 }
 
 export default EventsLog;
