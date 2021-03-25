@@ -85,7 +85,7 @@ describe('dynamoDB mapper wrapper service', () => {
     expect(updateResponse.gameStatus).toBe(newGameStatus);
   });
 
-  it('can add troops', async () => {
+  it('can add troops in first round', async () => {
     expect.hasAssertions();
 
     const game = await dynamoDBGameRepository.getByID(gameId);
@@ -97,7 +97,7 @@ describe('dynamoDB mapper wrapper service', () => {
 
     const response = game.addTroops(player.id, game.countries[countryIndex].countryKey, 1);
 
-    expect(response.state.newTroops).toBe(1);
+    expect(response.state.troops).toBe(1);
   });
 
   it('can delete a game', async () => {
