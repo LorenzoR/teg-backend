@@ -18,6 +18,9 @@ class Round {
 
   @attribute()
   public playerIndex: number;
+
+  @attribute()
+  public gotCard: boolean;
 }
 
 export default Round;

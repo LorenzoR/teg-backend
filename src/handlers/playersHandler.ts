@@ -1,11 +1,12 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
-import DynamoDBGameRepository from '../services/DynamoDBGameRepository';
-import APIGatewayWebsocketsService from '../services/APIGatewayWebsocketsService';
+import { APIGatewayWebsocketsService, DynamoDBGameRepository, GameService } from '@src/services';
+import { Logger } from '@src/utils';
 
 const localEndpoint = 'http://localhost:3001';
 
 const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
+const gameService = new GameService(gameRepository);
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(localEndpoint, process.env.STAGE || 'local');
 
 export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
@@ -18,11 +19,11 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
     try {
         // Get game
         // const game = await gameService.getGame(gameId);
-        console.log(`Trying to get game with ID ${gameId}`);
+        Logger.debug(`Trying to get game with ID ${gameId}`);
 
         if (!gameId || gameId === 'undefined') {
             const msg = 'No game ID in event body';
-            console.log(msg);
+            Logger.debug(msg);
             return {
                 statusCode: 200,
                 body: JSON.stringify(msg),
@@ -33,7 +34,7 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
 
         if (!game) {
             const msg = `No game with ID ${gameId}`;
-            console.log(msg);
+            Logger.debug(msg);
             return {
                 statusCode: 400,
                 body: JSON.stringify(msg),
@@ -43,7 +44,11 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
         // Ping all players to make sure who is online
         const pingPayload = { action: 'ping', body: { } };
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(pingPayload));
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(pingPayload),
+            gameService,
+        });
 
         // Get current player
         // const { players, guests, gameStatus } = game;
@@ -63,7 +68,7 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
         // Error. Player not found
         if (!currentPlayer) {
             const errorMsg = `Player ID ${connectionId} not found in game ${gameId}`;
-            console.error(errorMsg);
+            Logger.error(errorMsg);
 
             return {
                 statusCode: 400,
@@ -84,7 +89,7 @@ export const getPlayersHandler: APIGatewayProxyHandler = async (event) => {
             body: JSON.stringify('getGame OK!'),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         return {
             statusCode: 400,

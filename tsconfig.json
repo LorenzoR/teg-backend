@@ -17,9 +17,9 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "sourceRoot": "/",
-    "baseUrl": "./",
+    "baseUrl": "./src/",
     "paths": {
-      "@src/*": ["src/*"],
+      "@src/*": ["./*"],
       "@queries/*": ["queries/*"],
       "@tests/*": ["tests/*"]
     }

@@ -1,16 +1,18 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
-import DynamoDBGameRepository from '../services/DynamoDBGameRepository';
-import APIGatewayWebsocketsService from '../services/APIGatewayWebsocketsService';
+import { APIGatewayWebsocketsService, DynamoDBGameRepository, GameService } from '@src/services';
+import { Logger } from '@src/utils';
 
 const localEndpoint = 'http://localhost:3001';
 
 const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
 
+const gameService = new GameService(gameRepository);
+
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(localEndpoint, process.env.STAGE || 'local');
 
 export const chatMessageHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Chat message handler');
+    Logger.debug('Chat message handler');
 
     const eventBody = JSON.parse(event.body);
     const {
@@ -29,7 +31,7 @@ export const chatMessageHandler: APIGatewayProxyHandler = async (event) => {
     // Error. Player not found
     if (!player) {
         const errorMsg = `Player ID ${playerId} not found in game ${gameId}`;
-        console.error(errorMsg);
+        Logger.error(errorMsg);
 
         return {
             statusCode: 400,
@@ -41,7 +43,11 @@ export const chatMessageHandler: APIGatewayProxyHandler = async (event) => {
 
     // Send message to all player
     apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-    await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(payload));
+    await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+        game,
+        data: JSON.stringify(payload),
+        gameService,
+    });
 
     return {
         statusCode: 200,

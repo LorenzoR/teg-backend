@@ -2,7 +2,7 @@ import DynamoDBMapperWrapper from './DynamoDBMapperWrapper';
 import { WebSocketConnectionsRepositoryInterface } from './WebSocketConnectionsRepositoryInterface';
 import WebSocketConnection from '../models/WebSocketConnection';
 
-class DynamoDBWebSocketConnectionsRepository implements WebSocketConnectionsRepositoryInterface {
+export class DynamoDBWebSocketConnectionsRepository implements WebSocketConnectionsRepositoryInterface {
     private dynamoDBMapperWrapper!: DynamoDBMapperWrapper;
 
     public constructor(stage: string) {
@@ -26,5 +26,3 @@ class DynamoDBWebSocketConnectionsRepository implements WebSocketConnectionsRepo
         return this.dynamoDBMapperWrapper.delete(new WebSocketConnection(), { connectionId });
     }
 }
-
-export default DynamoDBWebSocketConnectionsRepository;

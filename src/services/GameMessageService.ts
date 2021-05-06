@@ -1,13 +1,18 @@
-import Game from '../models/Game';
-import APIGatewayWebsocketsService from './APIGatewayWebsocketsService';
+import { Game } from '@src/models';
+import { Logger } from '@src/utils';
+import { APIGatewayWebsocketsServiceInterface } from './APIGatewayWebsocketsServiceInterface';
 import { GameRepositoryInterface } from './GameRepositoryInterface';
+import { GameMessageServiceInterface } from './GameMessageServiceInterface';
 
-class GameMessageService {
-    private apiGatewayWebsocketsService: APIGatewayWebsocketsService;
+export class GameMessageService implements GameMessageServiceInterface {
+    private apiGatewayWebsocketsService: APIGatewayWebsocketsServiceInterface;
 
     private gameRepository: GameRepositoryInterface;
 
-    public constructor(input: { apiGatewayWebsocketsService: APIGatewayWebsocketsService, gameRepository: GameRepositoryInterface }) {
+    public constructor(input: {
+        apiGatewayWebsocketsService: APIGatewayWebsocketsServiceInterface;
+        gameRepository: GameRepositoryInterface;
+    }) {
         this.apiGatewayWebsocketsService = input.apiGatewayWebsocketsService;
         this.gameRepository = input.gameRepository;
     }
@@ -17,7 +22,7 @@ class GameMessageService {
             return null;
         }
 
-        console.log('sending game info to players');
+        Logger.debug('sending game info to players');
         const promises = [];
 
         game.players.forEach((player) => {
@@ -30,7 +35,7 @@ class GameMessageService {
             await Promise.all(promises);
             return true;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return false;
         }
     }
@@ -42,7 +47,7 @@ class GameMessageService {
             return null;
         }
 
-        console.log('sending to each player');
+        Logger.debug('sending to each player');
         const promises = [];
 
         game.players.forEach((player) => {
@@ -89,7 +94,7 @@ class GameMessageService {
                 if (!response.response) {
                     const player = game.getPlayerById(response.id);
                     if (player) {
-                        console.log(`Set player ${player.id} to offline`);
+                        Logger.debug(`Set player ${player.id} to offline`);
                         player.playerStatus = 'offline';
                         updateGame = true;
                     }
@@ -102,10 +107,8 @@ class GameMessageService {
 
             return true;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return false;
         }
     }
 }
-
-export default GameMessageService;

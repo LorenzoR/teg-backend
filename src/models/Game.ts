@@ -9,7 +9,9 @@ import {
 
 import { embed } from '@aws/dynamodb-data-mapper';
 
-import Player from './Player';
+import { Logger } from '@src/utils';
+
+import { Player } from './Player';
 import Country from './Country';
 import CountryCard from './CountryCard';
 import Round, { RoundType } from './Round';
@@ -59,8 +61,18 @@ const MAX_DICES_PER_THROW = 3;
 const FIRST_ROUND_TROOPS = 5;
 const SECOND_ROUND_TROOPS = 3;
 
-// TODO. Don't hard-code values
-const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
+// const CardExchangesCount = [4, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
+const CardExchangesCount = (cardExchangesCount: number) => {
+    if (cardExchangesCount === 0) {
+        return 4;
+    }
+
+    if (cardExchangesCount === 1) {
+        return 7;
+    }
+
+    return 10 + 5 * (cardExchangesCount - 2);
+};
 
 interface Dices {
     attacker: number[];
@@ -87,7 +99,7 @@ interface AttackResponse {
 
 // @table('local-teg-games')
 @table('teg-games')
-class Game {
+export class Game {
     @hashKey({
         type: 'String',
     })
@@ -162,6 +174,7 @@ class Game {
             count: 1,
             type: RoundType.FIRST_ADD_TROOPS,
             playerIndex: 0,
+            gotCard: false,
         };
 
         // Set status to STARTED
@@ -181,6 +194,7 @@ class Game {
             count: 1,
             type: RoundType.FIRST_ADD_TROOPS,
             playerIndex: 0,
+            gotCard: false,
         };
 
         // Troops to add
@@ -363,14 +377,14 @@ class Game {
         const player = this.players.find((p) => p.id === id);
 
         if (!player) {
-            console.log(`Player with ID ${id} not found`);
+            Logger.debug(`Player with ID ${id} not found`);
             return null;
         }
 
         player.name = name;
         player.color = color;
 
-        console.log(`Player ${id} is now ${name} (${color})`);
+        Logger.debug(`Player ${id} is now ${name} (${color})`);
 
         return player;
     }
@@ -389,10 +403,24 @@ class Game {
             if (removedPlayer) {
                 // removedPlayer.id = null;
                 removedPlayer.playerStatus = 'offline';
+
+                // Add event
+                this.addToEventsLog(
+                    `Player ${playerId} disconnected`,
+                    'playerRemoved',
+                    removedPlayer.color,
+                );
             }
         } else {
             // If game hasn't started just remove player
             removedPlayer = _.remove(this.players, (obj) => obj.id === playerId);
+
+            // Add event
+            this.addToEventsLog(
+                `Player ${playerId} quit`,
+                'playerQuit',
+                removedPlayer?.color || 'grey',
+            );
         }
 
         return removedPlayer && removedPlayer.length ? removedPlayer[0] : removedPlayer;
@@ -418,14 +446,14 @@ class Game {
             return null;
         }
 
-        console.log('PLAYERS BEFORE', this.players);
+        Logger.debug('PLAYERS BEFORE', this.players);
 
         // Find player by color
         const { players } = this;
         const player = _.find(players, (obj) => obj.color === color);
 
         if (!player) {
-            console.log(`No player found with color ${color}`);
+            Logger.debug(`No player found with color ${color}`);
             return null;
         }
 
@@ -434,12 +462,12 @@ class Game {
         player.playerStatus = 'online';
 
         // Remove players without color
-        console.log(`Remove not color and ID ${id}`);
+        Logger.debug(`Remove not color and ID ${id}`);
         // const filteredPlayers = players.filter((o) => o.id !== id || (o.id === id && o.color));
 
         this.players = [...players.filter((o) => o.id !== id || (o.id === id && o.color))];
 
-        console.log('PLAYERS AFTER', this.players);
+        Logger.debug('PLAYERS AFTER', this.players);
 
         return { player, players: this.players };
     }
@@ -555,6 +583,12 @@ class Game {
 
         const playerColor = currentPlayer.color;
 
+        const currentPlayerTurn = this.players[this.round.playerIndex];
+
+        if (currentPlayerTurn.color !== playerColor) {
+            throw new Error(`Not player ${playerColor} turn`);
+        }
+
         // Check if mission completed
         const { mission } = currentPlayer;
 
@@ -569,6 +603,11 @@ class Game {
         }
 
         const { players, round, countries } = this;
+
+        if (!round) {
+            Logger.debug('GAMEEEEEEEEEEEEEEE', this);
+            throw new Error('No round found');
+        }
 
         // Order is
         // FIRST_ADD_TROOPS --> SECOND_ADD_TROOPS -->
@@ -777,7 +816,7 @@ class Game {
 
             if (!defenderCountries || defenderCountries.length === 0) {
                 // Defender was killed
-                console.log(`${defenderColor} was killed by ${playerColor}`);
+                Logger.debug(`${defenderColor} was killed by ${playerColor}`);
 
                 // Add event
                 this.addToEventsLog(
@@ -788,7 +827,7 @@ class Game {
 
                 // Check if attacker mission was to destroy defender
                 if (player.mission.destroy) {
-                    console.log(`Player mission is to destory ${player.mission.destroy}`);
+                    Logger.debug(`Player mission is to destory ${player.mission.destroy}`);
                     if (player.mission.destroy === defenderColor) {
                         // Attacker won
                         this.gameStatus = 'finished';
@@ -819,7 +858,7 @@ class Game {
                         const playerIndex = _.findIndex(this.players, (obj) => obj.color === playerColor);
                         const nextIndex = (playerIndex + 1) % this.players.length;
 
-                        console.log(`Mission changes to destroy ${this.players[nextIndex].color}`);
+                        Logger.debug(`Mission changes to destroy ${this.players[nextIndex].color}`);
 
                         if (this.players[nextIndex].color === defenderColor) {
                             // Attacker won
@@ -853,11 +892,11 @@ class Game {
                 // Attacker can have 5 cards max, the rest goes to deck
                 while (defenderPlayer.cards.length > 0) {
                     if (player.cards.length <= 5) {
-                        console.log('Give card to attacker');
+                        Logger.debug('Give card to attacker');
                         cardsFromDefenderCount += 1;
                         player.cards.push(defenderPlayer.cards.pop());
                     } else {
-                        console.log('Card back to deck');
+                        Logger.debug('Card back to deck');
                         this.countryCards.push(defenderPlayer.cards.pop());
                     }
                 }
@@ -1022,6 +1061,8 @@ class Game {
         // Change round
         this.round.type = RoundType.GET_CARD;
 
+        this.round.gotCard = true;
+
         return {
             player,
             newCard,
@@ -1136,7 +1177,7 @@ class Game {
         this.countryCards = mergedCards;
 
         // Update player
-        player.troopsToAdd.free += CardExchangesCount[player.cardExchangesCount];
+        player.troopsToAdd.free += CardExchangesCount(player.cardExchangesCount);
         player.cardExchangesCount += 1;
 
         return {
@@ -1317,5 +1358,3 @@ class Game {
         return new Date().getTime();
     }
 }
-
-export default Game;

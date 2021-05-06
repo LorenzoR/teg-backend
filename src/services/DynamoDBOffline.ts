@@ -1,5 +1,6 @@
 import { AWSError, DynamoDB } from 'aws-sdk';
 import { PromiseResult } from 'aws-sdk/lib/request';
+import { Logger } from '@src/utils';
 
 class DynamoDBOffline {
     private DynamoDB: DynamoDB.DocumentClient = null;
@@ -28,7 +29,7 @@ class DynamoDBOffline {
             const response = await this.DynamoDB.put(paramsCopy).promise();
             return response;
         } catch (error) {
-            console.log(error);
+            Logger.debug(error);
             return undefined;
         }
     }
@@ -60,7 +61,7 @@ class DynamoDBOffline {
             // TODO. Handle error
             return undefined;
         } catch (error) {
-            console.log(error);
+            Logger.debug(error);
             return undefined;
         }
     }
@@ -78,7 +79,7 @@ class DynamoDBOffline {
             const response = await this.DynamoDB.get(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return undefined;
         }
     }
@@ -88,7 +89,7 @@ class DynamoDBOffline {
             const response = await this.DynamoDB.scan(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return undefined;
         }
     }
@@ -103,7 +104,7 @@ class DynamoDBOffline {
             const response = await this.DynamoDB.delete(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return undefined;
         }
     }

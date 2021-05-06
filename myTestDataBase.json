@@ -1,0 +1,118 @@
+{
+    "game-a9a03259-8185-4b2f-b076-6c3940c25ab1": {
+        "players": [
+            {
+                "id": "ckht5rd0g0003njic1vnh5im0",
+                "name": "user1",
+                "color": "blue",
+                "isAdmin": false,
+                "cards": [],
+                "playerStatus": "online",
+                "troopsToAdd": {
+                    "free": 5
+                },
+                "canGetCard": false,
+                "cardExchangesCount": 0
+            },
+            {
+                "id": "ckht5rd0g0003njic1vnh5im1",
+                "name": "user2",
+                "color": "red",
+                "isAdmin": false,
+                "cards": [],
+                "playerStatus": "online",
+                "troopsToAdd": {
+                    "free": 5
+                },
+                "canGetCard": false,
+                "cardExchangesCount": 0
+            }
+        ],
+        "countries": [],
+        "eventsLog": [
+            {
+                "time": 1619872926379,
+                "text": "Player user2 (red) joined game",
+                "type": "playerAdded",
+                "playerColor": "grey"
+            },
+            {
+                "time": 1619872926362,
+                "text": "Player user1 (blue) joined game",
+                "type": "playerAdded",
+                "playerColor": "grey"
+            }
+        ],
+        "diceService": {
+            "MAX_NUMBER": 6,
+            "MIN_NUMBER": 1
+        },
+        "gameStatus": "waitingPlayers",
+        "round": {
+            "count": 1,
+            "type": "firstAddTroops",
+            "playerIndex": 0,
+            "gotCard": false
+        },
+        "UUID": "a9a03259-8185-4b2f-b076-6c3940c25ab1",
+        "countryCards": []
+    },
+    "game-52617a29-5b36-4dba-8de7-66aee0c91784": {
+        "players": [
+            {
+                "id": "ckht5rd0g0003njic1vnh5im0",
+                "name": "user1",
+                "color": "blue",
+                "isAdmin": false,
+                "cards": [],
+                "playerStatus": "online",
+                "troopsToAdd": {
+                    "free": 5
+                },
+                "canGetCard": false,
+                "cardExchangesCount": 0
+            },
+            {
+                "id": "ckht5rd0g0003njic1vnh5im1",
+                "name": "user2",
+                "color": "red",
+                "isAdmin": false,
+                "cards": [],
+                "playerStatus": "online",
+                "troopsToAdd": {
+                    "free": 5
+                },
+                "canGetCard": false,
+                "cardExchangesCount": 0
+            }
+        ],
+        "countries": [],
+        "eventsLog": [
+            {
+                "time": 1619872951591,
+                "text": "Player user2 (red) joined game",
+                "type": "playerAdded",
+                "playerColor": "grey"
+            },
+            {
+                "time": 1619872951573,
+                "text": "Player user1 (blue) joined game",
+                "type": "playerAdded",
+                "playerColor": "grey"
+            }
+        ],
+        "diceService": {
+            "MAX_NUMBER": 6,
+            "MIN_NUMBER": 1
+        },
+        "gameStatus": "waitingPlayers",
+        "round": {
+            "count": 1,
+            "type": "firstAddTroops",
+            "playerIndex": 0,
+            "gotCard": false
+        },
+        "UUID": "52617a29-5b36-4dba-8de7-66aee0c91784",
+        "countryCards": []
+    }
+}

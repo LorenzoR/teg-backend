@@ -1,15 +1,17 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
-import DynamoDBGameRepository from '../services/DynamoDBGameRepository';
-import APIGatewayWebsocketsService from '../services/APIGatewayWebsocketsService';
+import { APIGatewayWebsocketsService, DynamoDBGameRepository, GameService } from '@src/services';
+import { Logger } from '@src/utils';
 
 const localEndpoint = 'http://localhost:3001';
 
 const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(localEndpoint, process.env.STAGE || 'local');
 
+const gameService = new GameService(gameRepository);
+
 export const getCardHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Get card handler');
+    Logger.debug('Get card handler');
 
     const eventBody = JSON.parse(event.body);
     const { gameId } = eventBody.data;
@@ -20,10 +22,10 @@ export const getCardHandler: APIGatewayProxyHandler = async (event) => {
     // Get game
     // const game = await gameService.getGame(gameId);
         const game = await gameRepository.getByID(gameId);
-        console.log(`Got game ID ${gameId}`);
+        Logger.debug(`Got game ID ${gameId}`);
 
         if (!game) {
-            console.error(`Game ID ${gameId} not found`);
+            Logger.error(`Game ID ${gameId} not found`);
 
             return {
                 statusCode: 400,
@@ -37,7 +39,7 @@ export const getCardHandler: APIGatewayProxyHandler = async (event) => {
         // Update game
         // await gameService.updateGame(game);
         await gameRepository.update(game);
-        console.log('Game updated');
+        Logger.debug('Game updated');
 
         const payload = { action: 'cardReceived', body: { players: response.players } };
 
@@ -53,17 +55,20 @@ export const getCardHandler: APIGatewayProxyHandler = async (event) => {
             },
         };
 
-        // TODO. Remove?
-        apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(payloadBroadcast));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            gameService,
+            data: JSON.stringify(payloadBroadcast),
+        });
+
+        Logger.debug('Message sent to all players!');
 
         return {
             statusCode: 200,
             body: JSON.stringify('moveTroops OK!'),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         return {
             statusCode: 400,
@@ -73,7 +78,7 @@ export const getCardHandler: APIGatewayProxyHandler = async (event) => {
 };
 
 export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Exchange card handler');
+    Logger.debug('Exchange card handler');
 
     const eventBody = JSON.parse(event.body);
     const { gameId, card } = eventBody.data;
@@ -84,10 +89,10 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
     // Get game
     // const game = await gameService.getGame(gameId);
         const game = await gameRepository.getByID(gameId);
-        console.log(`Got game ID ${gameId}`);
+        Logger.debug(`Got game ID ${gameId}`);
 
         if (!game) {
-            console.error(`Game ID ${gameId} not found`);
+            Logger.error(`Game ID ${gameId} not found`);
 
             return {
                 statusCode: 400,
@@ -96,12 +101,12 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
         }
 
         const response = game.exchangeCard(playerId, card);
-        console.log('Changed Card');
+        Logger.debug('Changed Card');
 
         // Update game
         // await gameService.updateGame(game);
         await gameRepository.update(game);
-        console.log('Game updated');
+        Logger.debug('Game updated');
 
         const payload = {
             action: 'cardExchanged',
@@ -110,10 +115,14 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
 
         // Send message to all player
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(payload));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(payload),
+            gameService,
+        });
+        Logger.debug('Message sent to all players!');
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         return {
             statusCode: 400,
@@ -128,7 +137,7 @@ export const exchangeCardHandler: APIGatewayProxyHandler = async (event) => {
 };
 
 export const exchangeCardsHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Exchange cards handler');
+    Logger.debug('Exchange cards handler');
 
     const eventBody = JSON.parse(event.body);
     const { gameId, cards } = eventBody.data;
@@ -141,7 +150,7 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event) => {
         const game = await gameRepository.getByID(gameId);
 
         if (!game) {
-            console.error(`Game ID ${gameId} not found`);
+            Logger.error(`Game ID ${gameId} not found`);
 
             return {
                 statusCode: 400,
@@ -149,28 +158,32 @@ export const exchangeCardsHandler: APIGatewayProxyHandler = async (event) => {
             };
         }
 
-        console.log(`Got game ID ${gameId}`);
+        Logger.debug(`Got game ID ${gameId}`);
 
         const response = game.exchangeCards(playerId, cards);
-        console.log('Exchanged cards');
+        Logger.debug('Exchanged cards');
 
         // Update game
         await gameRepository.update(game);
-        console.log('Game updated');
+        Logger.debug('Game updated');
 
         const payload = { action: 'cardsExchanged', body: { players: response.players } };
 
         // Send message to all player
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(payload));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(payload),
+            gameService,
+        });
+        Logger.debug('Message sent to all players!');
 
         return {
             statusCode: 200,
             body: JSON.stringify('moveTroops OK!'),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         return {
             statusCode: 400,

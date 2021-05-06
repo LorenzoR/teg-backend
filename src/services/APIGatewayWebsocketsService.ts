@@ -1,11 +1,12 @@
-// import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 
-import Game from '../models/Game';
-import { GameRepositoryInterface } from './GameRepositoryInterface';
+import { Game } from '@src/models';
+import { Logger } from '@src/utils';
+import { APIGatewayWebsocketsServiceInterface } from './APIGatewayWebsocketsServiceInterface';
+import { GameService } from './GameService';
 
-class APIGatewayWebsocketsService {
+export class APIGatewayWebsocketsService implements APIGatewayWebsocketsServiceInterface {
     private apigwManagementApi!: ApiGatewayManagementApi;
 
     public constructor(endpoint: string, stage = 'local', apiVersion = '2018-11-29') {
@@ -30,7 +31,7 @@ class APIGatewayWebsocketsService {
         if (event.requestContext.domainName !== 'localhost') {
             const endpoint = `${event.requestContext.domainName}/${event.requestContext.stage}`;
             this.setEndpoint(endpoint);
-            console.log('endpoint', endpoint);
+            Logger.debug('endpoint', endpoint);
         }
     }
 
@@ -50,7 +51,7 @@ class APIGatewayWebsocketsService {
 
                 return true;
             } catch (error) {
-                console.error('APIGatewayWebsocketsService::send ERROR', error.message);
+                Logger.error('APIGatewayWebsocketsService::send ERROR', error.message);
                 return false;
             }
         }
@@ -79,7 +80,7 @@ class APIGatewayWebsocketsService {
             response.push({ id: uniqueConnectionIds[index], response: aResponse });
         });
 
-        console.log('Broadcast response', response);
+        Logger.debug('Broadcast response', response);
 
         return response;
     }
@@ -104,16 +105,23 @@ class APIGatewayWebsocketsService {
             response.push({ id: uniqueConnectionIds[index], response: aResponse });
         });
 
-        console.log('BroadcastDifferentData response', response);
+        Logger.debug('BroadcastDifferentData response', response);
 
         return response;
     }
 
+    // TODO. Remove gameRepository
     public async sendMessageToAllPlayers(
-        game: Game,
-        gameRepository: GameRepositoryInterface,
-        data: ApiGatewayManagementApi.PostToConnectionRequest['Data'],
+        input: {
+            game: Game;
+            data: ApiGatewayManagementApi.PostToConnectionRequest['Data'];
+            gameService: GameService;
+        },
     ): Promise<boolean> {
+        const {
+            game, data, gameService,
+        } = input;
+
         if (!game) {
             throw new Error('No game');
         }
@@ -123,7 +131,7 @@ class APIGatewayWebsocketsService {
 
         const connectionIds = onlinePlayers.map((o) => o.id);
 
-        console.log('sending to ', connectionIds);
+        Logger.debug('sending to ', connectionIds);
 
         try {
             let updateGame = false;
@@ -134,7 +142,7 @@ class APIGatewayWebsocketsService {
                 if (!response.response) {
                     const player = game.getPlayerById(response.id);
                     if (player) {
-                        console.log(`Set player ${player.id} to offline`);
+                        Logger.debug(`Set player ${player.id} to offline`);
                         player.playerStatus = 'offline';
                         updateGame = true;
                     }
@@ -142,15 +150,13 @@ class APIGatewayWebsocketsService {
             });
 
             if (updateGame) {
-                await gameRepository.update(game);
+                await gameService.updateGame(game);
             }
 
             return true;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return false;
         }
     }
 }
-
-export default APIGatewayWebsocketsService;

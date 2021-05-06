@@ -1,6 +1,7 @@
-import { DataMapper } from '@aws/dynamodb-data-mapper';
-
+import { DataMapper, StringToAnyObjectMap } from '@aws/dynamodb-data-mapper';
+import { ZeroArgumentsConstructor } from '@aws/dynamodb-data-marshaller';
 import DynamoDB from 'aws-sdk/clients/dynamodb';
+import { Logger } from '@src/utils';
 
 class DynamoDBMapperWrapper {
     private DynamoDB = null;
@@ -32,14 +33,18 @@ class DynamoDBMapperWrapper {
 
     public async put(element: unknown, attributes: unknown): Promise<boolean> {
         // const game = new Game();
+        Logger.debug('element', element);
+        Logger.debug('attributes', attributes);
         const toSave = Object.assign(element, attributes);
+
+        Logger.debug('toSave', JSON.stringify(toSave));
 
         try {
             const response = await this.mapper.put(toSave);
 
             return !!response;
         } catch (error) {
-            console.error('ERROR', error);
+            Logger.error('ERROR', error);
             return false;
         }
     }
@@ -47,10 +52,11 @@ class DynamoDBMapperWrapper {
     public async get(element: unknown, key: unknown): Promise<unknown | null> {
         try {
             const response = await this.mapper.get(Object.assign(element, key));
+            Logger.debug('RESPONSEEEEE', response);
 
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return null;
         }
     }
@@ -61,17 +67,24 @@ class DynamoDBMapperWrapper {
 
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return null;
         }
     }
 
-    public async scan(params: unknown): Promise<boolean> {
+    public async scan(valueConstructor: ZeroArgumentsConstructor<StringToAnyObjectMap>): Promise<unknown[]> {
         try {
-            const response = await this.DynamoDB.scan(params).promise();
-            return response;
+            const iterator = this.mapper.scan(valueConstructor);
+            const result = [];
+
+            // eslint-disable-next-line no-restricted-syntax
+            for await (const item of iterator) {
+                result.push(item);
+            }
+
+            return result;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return null;
         }
     }
@@ -85,7 +98,7 @@ class DynamoDBMapperWrapper {
             const response = await this.mapper.delete(Object.assign(element, key));
             return !!response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return false;
         }
     }

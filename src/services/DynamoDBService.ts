@@ -1,11 +1,12 @@
 import { AWSError, DynamoDB } from 'aws-sdk';
 import { PromiseResult } from 'aws-sdk/lib/request';
+import { Logger } from '@src/utils';
 
 class DynamoDBService {
     private DynamoDB: DynamoDB.DocumentClient = null;
 
     constructor(stage: string) {
-        console.log('Stage', stage);
+        Logger.debug('Stage', stage);
         if (stage === 'local') {
             this.DynamoDB = new DynamoDB.DocumentClient({
                 region: 'localhost',
@@ -25,10 +26,10 @@ class DynamoDBService {
 
         try {
             const response = await this.DynamoDB.put(paramsCopy).promise();
-            console.log('put response', response);
+            Logger.debug('put response', response);
             return response;
         } catch (error) {
-            console.log(error);
+            Logger.debug(error);
             return undefined;
         }
     }
@@ -59,7 +60,7 @@ class DynamoDBService {
             // TODO. Handle error
             return null;
         } catch (error) {
-            console.log(error);
+            Logger.debug(error);
             return null;
         }
     }
@@ -77,7 +78,7 @@ class DynamoDBService {
             const response = await this.DynamoDB.get(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return undefined;
         }
     }
@@ -87,7 +88,7 @@ class DynamoDBService {
             const response = await this.DynamoDB.scan(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return null;
         }
     }
@@ -102,7 +103,7 @@ class DynamoDBService {
             const response = await this.DynamoDB.delete(params).promise();
             return response;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return null;
         }
     }

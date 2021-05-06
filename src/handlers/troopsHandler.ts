@@ -1,11 +1,12 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
-import DynamoDBGameRepository from '../services/DynamoDBGameRepository';
-import APIGatewayWebsocketsService from '../services/APIGatewayWebsocketsService';
+import { DynamoDBGameRepository, GameService, APIGatewayWebsocketsService } from '@src/services';
+import { Logger } from '@src/utils';
 
 const localEndpoint = 'http://localhost:3001';
 
 const gameRepository = new DynamoDBGameRepository(process.env.STAGE || 'local');
+const gameService = new GameService(gameRepository);
 const apiGatewayWebsocketsService = new APIGatewayWebsocketsService(localEndpoint, process.env.STAGE || 'local');
 
 /*
@@ -13,7 +14,7 @@ const setEndpointFromEvent = (event): void => {
     if (event.requestContext.domainName !== 'localhost') {
         endpoint = `${event.requestContext.domainName}/${event.requestContext.stage}`;
         apiGatewayWebsocketsService.setEndpoint(endpoint);
-        console.log('endpoint', endpoint);
+        Logger.debug('endpoint', endpoint);
     }
 };
 */
@@ -24,7 +25,7 @@ const ActionTypes = {
 };
 
 export const addTroopsHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Add troops handler');
+    Logger.debug('Add troops handler');
 
     const eventBody = JSON.parse(event.body);
     const {
@@ -37,31 +38,35 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event) => {
     // const game = await gameService.getGame(gameId);
     try {
         const game = await gameRepository.getByID(gameId);
-        console.log(`Got game ${game.UUID} for player ID ${playerId}`);
+        Logger.debug(`Got game ${game.UUID} for player ID ${playerId}`);
 
         game.addTroops(playerId, country, count);
 
-        console.log(`Player ${playerColor} added ${count} troops to ${country}`);
+        Logger.debug(`Player ${playerColor} added ${count} troops to ${country}`);
 
         // Update game
         // const response = await gameService.updateGame(game);
         const response = await gameRepository.update(game);
-        console.log('game updated!');
+        Logger.debug('game updated!');
         // const response = await gameService.updateCountry(gameId, game.countries[country]);
-        // console.log('Country updated!');
+        // Logger.debug('Country updated!');
 
         const message = { action: ActionTypes.TROOPS_ADDED, body: game.getGame() };
 
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(message));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(message),
+            gameService,
+        });
+        Logger.debug('Message sent to all players!');
 
         return {
             statusCode: 200,
             body: JSON.stringify(response),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         // Send error message
         const errorPayload = { action: 'error', body: { errorMsg: error.message } };
@@ -77,7 +82,7 @@ export const addTroopsHandler: APIGatewayProxyHandler = async (event) => {
 };
 
 export const moveTroopsHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Move Troops handler');
+    Logger.debug('Move Troops handler');
 
     const eventBody = JSON.parse(event.body);
     const {
@@ -90,10 +95,10 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event) => {
         // Get game
         // const game = await gameService.getGame(gameId);
         const game = await gameRepository.getByID(gameId);
-        console.log(`Got game ID ${gameId}`);
+        Logger.debug(`Got game ID ${gameId}`);
 
         if (!game) {
-            console.error(`Game ID ${gameId} not found`);
+            Logger.error(`Game ID ${gameId} not found`);
 
             return {
                 statusCode: 400,
@@ -102,24 +107,28 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event) => {
         }
 
         const response = game.moveTroops(playerId, source, target, count, countryConquered);
-        console.log(`Player ${playerColor} moved ${count} troops from ${source} to ${target}`);
+        Logger.debug(`Player ${playerColor} moved ${count} troops from ${source} to ${target}`);
 
         // await gameService.updateGame(game);
         await gameRepository.update(game);
-        console.log('Game updated');
+        Logger.debug('Game updated');
 
         const message = { action: 'troopsMoved', body: response };
 
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(message));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(message),
+            gameService,
+        });
+        Logger.debug('Message sent to all players!');
 
         return {
             statusCode: 200,
             body: JSON.stringify('moveTroops OK!'),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         return {
             statusCode: 400,
@@ -129,7 +138,7 @@ export const moveTroopsHandler: APIGatewayProxyHandler = async (event) => {
 };
 
 export const attackHandler: APIGatewayProxyHandler = async (event) => {
-    console.log('Attack handler');
+    Logger.debug('Attack handler');
 
     const eventBody = JSON.parse(event.body);
     const {
@@ -143,10 +152,10 @@ export const attackHandler: APIGatewayProxyHandler = async (event) => {
     // Get game
     // const game = await gameService.getGame(gameId);
         const game = await gameRepository.getByID(gameId);
-        console.log(`Got game ID ${gameId}`);
+        Logger.debug(`Got game ID ${gameId}`);
 
         if (!game) {
-            console.error(`Game ID ${gameId} not found`);
+            Logger.error(`Game ID ${gameId} not found`);
 
             return {
                 statusCode: 400,
@@ -156,25 +165,29 @@ export const attackHandler: APIGatewayProxyHandler = async (event) => {
 
         // Attack
         const attackResponse = game.attack(playerId, attacker, defender);
-        console.log(`Player ${playerColor} attacked ${defender} from ${attacker}`);
-        console.log(`${attackResponse.dices.attacker} vs ${attackResponse.dices.defender}`);
+        Logger.debug(`Player ${playerColor} attacked ${defender} from ${attacker}`);
+        Logger.debug(`${attackResponse.dices.attacker} vs ${attackResponse.dices.defender}`);
 
         // Update game
         await gameRepository.update(game);
-        console.log('Game updated');
+        Logger.debug('Game updated');
 
         const message = { action: 'countryAttacked', body: attackResponse };
 
         apiGatewayWebsocketsService.setEndpointFromLambdaEvent(event);
-        await apiGatewayWebsocketsService.sendMessageToAllPlayers(game, gameRepository, JSON.stringify(message));
-        console.log('Message sent to all players!');
+        await apiGatewayWebsocketsService.sendMessageToAllPlayers({
+            game,
+            data: JSON.stringify(message),
+            gameService,
+        });
+        Logger.debug('Message sent to all players!');
 
         return {
             statusCode: 200,
             body: JSON.stringify('addTroops OK!'),
         };
     } catch (error) {
-        console.error(error);
+        Logger.error(error);
 
         // Send error message
         const errorPayload = { action: 'error', body: { errorMsg: error.message } };

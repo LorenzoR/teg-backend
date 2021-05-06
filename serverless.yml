@@ -56,7 +56,7 @@ provider:
 functions:
 # API Gateway
   userRegistration:
-    handler: src/handlers/gameHandler.newGameHandler
+    handler: src/handlers/gameHandler/index.newGameHandler
     events:
       - http:
           path: new-game
@@ -65,22 +65,22 @@ functions:
 
 # Web sockets
   connectHandler:
-    handler: src/handlers/connectionHandler.connectHandler
+    handler: src/handlers/connectionHandler/index.connectHandler
     events:
       - websocket: $connect
   disconnectHandler:
-    handler: src/handlers/connectionHandler.disconnectHandler
+    handler: src/handlers/connectionHandler/index.disconnectHandler
     events:
       - websocket:
           route: $disconnect
   reConnect:
-    handler: src/handlers/connectionHandler.reConnectHandler
+    handler: src/handlers/connectionHandler/index.reConnectHandler
     events:
       - websocket:
           route: reConnect
           routeResponseSelectionExpression: $default
   joinGame:
-    handler: src/handlers/gameHandler.joinGameHandler
+    handler: src/handlers/gameHandler/index.joinGameHandler
     events:
       - websocket:
           route: joinGame
@@ -92,13 +92,13 @@ functions:
           route: getPlayers
           routeResponseSelectionExpression: $default
   startGame:
-    handler: src/handlers/gameHandler.startGameHandler
+    handler: src/handlers/gameHandler/index.startGameHandler
     events:
       - websocket:
           route: startGame
           routeResponseSelectionExpression: $default
   finishRound:
-    handler: src/handlers/gameHandler.finishRoundHandler
+    handler: src/handlers/gameHandler/index.finishRoundHandler
     events:
       - websocket:
           route: finishRound

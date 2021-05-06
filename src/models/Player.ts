@@ -26,7 +26,7 @@ export const PlayerTypes = {
     PINK: 'pink',
 };
 
-class Player {
+export class Player {
     @attribute()
     public id: string;
 
@@ -63,5 +63,3 @@ class Player {
   }
   */
 }
-
-export default Player;

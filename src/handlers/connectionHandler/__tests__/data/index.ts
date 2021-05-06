@@ -1,0 +1,1 @@
+export { connectHandlerEvent } from './connectHandlerEvent';

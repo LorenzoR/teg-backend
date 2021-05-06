@@ -1,0 +1,9 @@
+export { GameService } from '@src/services/GameService';
+export { APIGatewayWebsocketsServiceInterface } from '@src/services/APIGatewayWebsocketsServiceInterface';
+export { GameMessageServiceInterface } from '@src/services/GameMessageServiceInterface';
+export { APIGatewayWebsocketsService } from '@src/services/APIGatewayWebsocketsService';
+export { DynamoDBGameRepository } from '@src/services/DynamoDBGameRepository';
+export { GameMessageService } from './GameMessageService';
+export { GameRepositoryInterface } from './GameRepositoryInterface';
+export { DynamoDBWebSocketConnectionsRepository } from './DynamoDBWebSocketConnectionsRepository';
+export { WebSocketConnectionsRepositoryInterface } from './WebSocketConnectionsRepositoryInterface';

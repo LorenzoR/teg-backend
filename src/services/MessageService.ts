@@ -1,7 +1,8 @@
 import { ApiGatewayManagementApi } from 'aws-sdk';
-import GameService from './GameService';
-import DynamoDBOffline from './DynamoDBOffline';
-import APIGatewayWebsocketsService from './APIGatewayWebsocketsService';
+import { Logger } from '@src/utils';
+import { GameService } from './GameService';
+import { APIGatewayWebsocketsService } from './APIGatewayWebsocketsService';
+import { DynamoDBGameRepository } from './DynamoDBGameRepository';
 
 interface Dependencies {
   gameService?: GameService;
@@ -17,8 +18,8 @@ class MessageService {
         if (dependencies.gameService) {
             this.gameService = dependencies.gameService;
         } else {
-            const dynamoDBOffline = new DynamoDBOffline('local');
-            this.gameService = new GameService(dynamoDBOffline);
+            const ynamoDBGameRepository = new DynamoDBGameRepository('local');
+            this.gameService = new GameService(ynamoDBGameRepository);
         }
     }
 
@@ -30,7 +31,7 @@ class MessageService {
 
         return true;
       } catch (error) {
-        console.error(error);
+        Logger.error(error);
         return false;
       }
     }
@@ -46,19 +47,19 @@ class MessageService {
         const connectionIds = [];
 
         if (game.players) {
-            console.log('sending to players');
+            Logger.debug('sending to players');
             game.players.forEach((player) => {
                 connectionIds.push(player.id);
             });
         }
 
-        console.log('sending to players', connectionIds);
+        Logger.debug('sending to players', connectionIds);
 
         try {
             await this.apiGatewayWebsocketsService.broadcast(data, connectionIds);
             return true;
         } catch (error) {
-            console.error(error);
+            Logger.error(error);
             return false;
         }
     }
@@ -74,18 +75,18 @@ class MessageService {
       const connectionIds = [];
 
       if (game.guests) {
-        console.log('sending to guests');
+        Logger.debug('sending to guests');
         game.guests.forEach((guest) => {
           connectionIds.push(guest.id);
         });
       }
-      console.log('sending to guests', connectionIds);
+      Logger.debug('sending to guests', connectionIds);
 
       try {
         await this.apiGatewayWebsocketsService.broadcast(data, connectionIds);
         return true;
       } catch (error) {
-        console.error(error);
+        Logger.error(error);
         return false;
       }
     }

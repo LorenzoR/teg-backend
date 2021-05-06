@@ -1,21 +1,27 @@
+import { Game } from '@src/models';
+import { Logger } from '@src/utils';
 import DynamoDBMapperWrapper from './DynamoDBMapperWrapper';
-import Game from '../models/Game';
 import { GameRepositoryInterface } from './GameRepositoryInterface';
 
-class DynamoDBGameRepository implements GameRepositoryInterface {
+export class DynamoDBGameRepository implements GameRepositoryInterface {
     private dynamoDBMapperWrapper!: DynamoDBMapperWrapper;
 
     public constructor(stage: string) {
+        Logger.debug('stage', stage);
         this.dynamoDBMapperWrapper = new DynamoDBMapperWrapper(stage);
     }
 
     public async insert(game: Game): Promise<boolean> {
-        return this.dynamoDBMapperWrapper.put(new Game(), game);
+        const newGame = new Game();
+        Logger.debug('newGame newGame newGame', newGame);
+
+        return this.dynamoDBMapperWrapper.put(newGame, game);
     }
 
     public async getAll(): Promise<Game[]> {
-        const game = await this.dynamoDBMapperWrapper.get(new Game(), { UUID: '1' });
-        return [Object.assign(new Game(), game)];
+        const games = await this.dynamoDBMapperWrapper.scan(Game);
+        Logger.debug('games games games games', games);
+        return [Object.assign(new Game(), games)];
     }
 
     public async getByID(UUID: string): Promise<Game> {
@@ -34,5 +40,3 @@ class DynamoDBGameRepository implements GameRepositoryInterface {
         return this.dynamoDBMapperWrapper.delete(new Game(), { UUID });
     }
 }
-
-export default DynamoDBGameRepository;
